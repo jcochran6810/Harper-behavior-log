@@ -10,7 +10,7 @@ import type { LogWithPeriods } from "./types";
  */
 
 const LOG_COLUMNS = `
-  id, log_date, day_of_week, date_confirmed, overall_note, image_path,
+  id, log_date, day_of_week, date_confirmed, overall_note, image_path, row_geometry,
   harper_log_periods (
     id, period_key, specials_subject, antecedent, notes, raw_tally,
     smiley_count, not_observed, confidence, total,

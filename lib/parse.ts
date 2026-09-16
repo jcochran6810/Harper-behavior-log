@@ -10,6 +10,13 @@ import {
   zeroCounts,
   type TallyCounts,
 } from "./tally";
+import {
+  averageLayouts,
+  fallbackLayout,
+  layoutDrift,
+  normalizeLayout,
+  type Layout,
+} from "./geometry";
 import type { ParsedLog, PeriodEntry } from "./types";
 
 export const PARSER_MODEL = "claude-opus-5";
@@ -96,6 +103,21 @@ RULES
     re-checks every row you mark, so marking one costs nothing and guessing costs a lot.
   - If the Date field is blank, return null for log_date. Do not substitute today's date.
 
+WHERE EACH ROW SITS ON THE PHOTOGRAPH
+Alongside the transcription, report the grid of the printed table so the app can draw a
+tappable box over each row. Give every measurement as a FRACTION of the whole image:
+0.0 is the left or top edge, 1.0 is the right or bottom edge.
+  - table_left / table_right: the vertical ruled lines bounding the table.
+  - Each row gets row_top and row_bottom: the horizontal ruled lines above and below THAT
+    row, measured down the page. Community Time is the first row under the header box;
+    Social Studies is the last.
+  - The rows are stacked and touch each other, so one row's bottom is the next row's top.
+    They must increase down the page: every row_top is greater than the row above it.
+  - Measure the printed ruled lines, not the handwriting — handwriting often spills past
+    its row, and a box drawn around the writing would cover the wrong row.
+  - Estimate as carefully as you can, but do not agonise: a person can drag the grid into
+    place afterwards, and a grid that is obviously wrong is discarded rather than shown.
+
 Call the record_behavior_log tool exactly once with the complete transcription. Do not reply with plain text.`;
 
 const periodSchema = {
@@ -120,6 +142,14 @@ const periodSchema = {
       description: "True when the teacher noted she could not observe this period.",
     },
     confidence: { type: "string", enum: ["high", "medium", "low"] },
+    row_top: {
+      type: "number",
+      description: "Fraction of image height (0-1) of the ruled line ABOVE this row.",
+    },
+    row_bottom: {
+      type: "number",
+      description: "Fraction of image height (0-1) of the ruled line BELOW this row.",
+    },
     counts: {
       type: "object",
       additionalProperties: false,
@@ -132,7 +162,7 @@ const periodSchema = {
   },
   required: [
     "period_key", "specials_subject", "antecedent", "notes", "raw_tally",
-    "smiley_count", "not_observed", "confidence", "counts",
+    "smiley_count", "not_observed", "confidence", "row_top", "row_bottom", "counts",
   ],
 } as const;
 
@@ -164,13 +194,24 @@ function buildTool(strict: boolean): Anthropic.Tool {
         // minItems, and the API rejects the whole request otherwise. The count is
         // stated in the description, and any row the model skips is filled in as
         // an empty, flagged period below.
+        table_left: {
+          type: "number",
+          description: "Fraction of image width (0-1) of the table's left ruled edge.",
+        },
+        table_right: {
+          type: "number",
+          description: "Fraction of image width (0-1) of the table's right ruled edge.",
+        },
         periods: {
           type: "array",
           items: periodSchema,
           description: "All ten schedule rows, in order, including blank ones.",
         },
       },
-      required: ["date_month", "date_day", "day_of_week", "overall_note", "periods"],
+      required: [
+        "date_month", "date_day", "day_of_week", "overall_note",
+        "table_left", "table_right", "periods",
+      ],
     } as unknown as Anthropic.Tool.InputSchema,
     };
 }
@@ -184,6 +225,8 @@ type RawPeriod = {
   smiley_count: number;
   not_observed: boolean;
   confidence: string;
+  row_top: number;
+  row_bottom: number;
   counts: Record<string, number>;
 };
 
@@ -192,8 +235,43 @@ type RawLog = {
   date_day: number | null;
   day_of_week: string | null;
   overall_note: string | null;
+  table_left: number;
+  table_right: number;
   periods: RawPeriod[];
 };
+
+/** Pull the row grid out of one read, or null if it doesn't hold together. */
+function layoutOf(read: RawLog): Layout | null {
+  return normalizeLayout({
+    left: read.table_left,
+    right: read.table_right,
+    bands: (read.periods ?? []).map((p) => ({
+      period_key: p.period_key,
+      top: p.row_top,
+      bottom: p.row_bottom,
+    })),
+  });
+}
+
+/**
+ * Two independent reads that place the same row in noticeably different spots
+ * mean neither measurement is trustworthy, so the grid falls back to an even
+ * split and asks to be aligned. 4% of the image height is about a third of a
+ * row on this form — past that, a box starts covering its neighbour.
+ */
+const MAX_LAYOUT_DRIFT = 0.04;
+
+function settleLayout(reads: RawLog[]): { layout: Layout; measured: boolean } {
+  const found = reads.map(layoutOf).filter((l): l is Layout => l !== null);
+  if (found.length === 0) return { layout: fallbackLayout(), measured: false };
+  if (found.length === 1) return { layout: found[0], measured: true };
+
+  const [first, second] = found;
+  if (layoutDrift(first, second) > MAX_LAYOUT_DRIFT) {
+    return { layout: fallbackLayout(), measured: false };
+  }
+  return { layout: averageLayouts(first, second), measured: true };
+}
 
 type Confidence = PeriodEntry["confidence"];
 
@@ -478,12 +556,16 @@ export async function parseLogImage(
     };
   });
 
+  const { layout, measured } = settleLayout(reads);
+
   return {
     parsed: {
       log_date: resolveDate(primary.date_month, primary.date_day),
       day_of_week: primary.day_of_week || null,
       overall_note: primary.overall_note || null,
       periods,
+      layout,
+      layout_source: measured ? "measured" : "estimated",
     },
     raw: { passes: reads.length, reads },
   };

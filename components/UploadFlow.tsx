@@ -109,18 +109,10 @@ export default function UploadFlow() {
   if (stage === "review" && parsed) {
     return (
       <div className="space-y-4">
-        {image && (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={image.previewUrl}
-            alt="The behavior log you photographed"
-            className="card w-full object-contain"
-            style={{ maxHeight: "50vh" }}
-          />
-        )}
         <ReviewForm
           initial={parsed}
           image={image ? { base64: image.base64, mediaType: image.mediaType } : null}
+          previewUrl={image?.previewUrl ?? null}
           raw={raw}
           onSaved={(date) => {
             setSavedDate(date);

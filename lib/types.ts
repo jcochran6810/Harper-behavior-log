@@ -1,3 +1,5 @@
+import type { Layout } from "./geometry";
+
 export type PeriodEntry = {
   period_key: string;
   specials_subject: string | null;
@@ -22,6 +24,10 @@ export type ParsedLog = {
   day_of_week: string | null;
   overall_note: string | null;
   periods: PeriodEntry[];
+  /** Where each row of the form sits on the photo, for the tappable boxes. */
+  layout: Layout;
+  /** "estimated" means the grid is an even split and wants aligning by hand. */
+  layout_source: "measured" | "estimated";
 };
 
 export type DailyTotal = {
@@ -62,6 +68,8 @@ export type PeriodBehavior = {
 
 export type LogWithPeriods = {
   id: string;
+  /** Saved row grid for the stored photo; null for days saved before boxes existed. */
+  row_geometry: Layout | null;
   log_date: string;
   day_of_week: string | null;
   date_confirmed: boolean;

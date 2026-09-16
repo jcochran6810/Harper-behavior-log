@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { BEHAVIORS, BEHAVIOR_KEYS, PERIOD_KEYS, PERIODS, type BehaviorKey } from "@/lib/behaviors";
+import { fallbackLayout, type Layout } from "@/lib/geometry";
 import { prepareImage } from "@/lib/image";
+import PhotoBoxes from "@/components/PhotoBoxes";
 import { readTally, sameCounts, zeroCounts } from "@/lib/tally";
 import type { LogWithPeriods } from "@/lib/types";
 
@@ -94,6 +96,10 @@ export default function DayDetail({
   const [error, setError] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [layout, setLayout] = useState<Layout>(log.row_geometry ?? fallbackLayout());
+  const [layoutEstimated, setLayoutEstimated] = useState(!log.row_geometry);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLElement | null>>({});
   const [uploading, setUploading] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
@@ -104,6 +110,35 @@ export default function DayDetail({
     0,
   );
   const smileys = shown.reduce((sum, p) => sum + (p.smiley_count ?? 0), 0);
+
+  const totalsByPeriod = useMemo(
+    () =>
+      Object.fromEntries(
+        shown.map((p) => [
+          p.period_key,
+          BEHAVIOR_KEYS.reduce((acc, k) => acc + (p[k] ?? 0), 0),
+        ]),
+      ) as Record<string, number>,
+    [shown],
+  );
+
+  /** Rows whose stored numbers no longer agree with the marks on the page. */
+  const mismatchedKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const p of shown) {
+      const subtotal = BEHAVIOR_KEYS.reduce((acc, k) => acc + (p[k] ?? 0), 0);
+      if (p.not_observed) {
+        if (subtotal > 0) keys.add(p.period_key);
+        continue;
+      }
+      const reading = readTally(p.raw_tally);
+      if (reading.empty || !reading.understood) continue;
+      const stored = zeroCounts();
+      for (const k of BEHAVIOR_KEYS) stored[k] = p[k] ?? 0;
+      if (!sameCounts(stored, reading.counts)) keys.add(p.period_key);
+    }
+    return keys;
+  }, [shown]);
 
   function update(key: string, patch: Partial<Row>) {
     setRows((prev) => prev.map((p) => (p.period_key === key ? { ...p, ...patch } : p)));
@@ -143,6 +178,30 @@ export default function DayDetail({
     } finally {
       setSaving(false);
     }
+  }
+
+  /** Tapping a box: open the editor and land on that row. */
+  function pickPeriod(key: string) {
+    if (!editing) {
+      setRows(ordered);
+      setEditing(true);
+    }
+    setActiveKey(key);
+    // The row only exists once the editor has rendered it.
+    requestAnimationFrame(() =>
+      rowRefs.current[key]?.scrollIntoView({ behavior: "smooth", block: "center" }),
+    );
+  }
+
+  /** An aligned grid is worth keeping — it belongs to this photo, not this visit. */
+  async function saveLayout(next: Layout) {
+    setLayout(next);
+    setLayoutEstimated(false);
+    await fetch(`/api/logs/${log.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ layout: next }),
+    }).catch(() => {});
   }
 
   async function attachPhoto(file: File) {
@@ -215,23 +274,22 @@ export default function DayDetail({
       <section className="card overflow-hidden">
         {photoUrl ? (
           <>
-            <button
-              type="button"
-              onClick={() => setZoomed(true)}
-              className="block w-full"
-              aria-label="Open the photo full size"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photoUrl}
-                alt={`The paper behavior log for ${longDate(log.log_date)}`}
-                className="w-full object-contain"
-                style={{ maxHeight: "60vh", background: "var(--page)" }}
-              />
-            </button>
+            <PhotoBoxes
+              src={photoUrl}
+              alt={`The paper behavior log for ${longDate(log.log_date)}`}
+              layout={layout}
+              totals={totalsByPeriod}
+              flagged={mismatchedKeys}
+              activeKey={activeKey}
+              estimated={layoutEstimated}
+              onPick={pickPeriod}
+              onLayoutChange={(next) => void saveLayout(next)}
+            />
             <p className="px-4 py-2 text-xs" style={{ color: "var(--text-muted)" }}>
-              The original page. Tap it to open it full size and check the numbers below
-              against the marks.{" "}
+              <button type="button" onClick={() => setZoomed(true)} className="underline">
+                Open the page full size
+              </button>{" "}
+              to read the marks.{" "}
               <button
                 type="button"
                 onClick={() => libraryRef.current?.click()}
@@ -396,17 +454,23 @@ export default function DayDetail({
         // A period the teacher couldn't watch can't also have counted incidents.
         const contradicts = p.not_observed && subtotal > 0;
 
-        const quiet = !editing && subtotal === 0 && !p.notes && !p.not_observed;
+        const quiet =
+          !editing && subtotal === 0 && !p.notes && !p.not_observed && activeKey !== p.period_key;
         if (quiet) return null;
 
         return (
           <section
             key={p.period_key}
-            className="card p-4"
+            ref={(el) => {
+              rowRefs.current[p.period_key] = el;
+            }}
+            className="card scroll-mt-4 p-4"
             style={
-              marksDisagree || contradicts
-                ? { borderColor: "var(--warning)", borderWidth: 2 }
-                : undefined
+              activeKey === p.period_key
+                ? { borderColor: BEHAVIORS[0].color, borderWidth: 2 }
+                : marksDisagree || contradicts
+                  ? { borderColor: "var(--warning)", borderWidth: 2 }
+                  : undefined
             }
           >
             <div className="mb-2 flex items-baseline justify-between gap-2">

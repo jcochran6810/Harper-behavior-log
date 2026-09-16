@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { BEHAVIORS, PERIODS } from "@/lib/behaviors";
+import { fallbackLayout, type Layout } from "@/lib/geometry";
+import PhotoBoxes from "@/components/PhotoBoxes";
 import type { ParsedLog, PeriodEntry } from "@/lib/types";
 
 export function emptyParsedLog(): ParsedLog {
@@ -20,6 +22,8 @@ export function emptyParsedLog(): ParsedLog {
       confidence: "high" as const,
       b1: 0, b2: 0, b3: 0, b4: 0, b5: 0, b6: 0, b7: 0, b8: 0,
     })),
+    layout: fallbackLayout(),
+    layout_source: "estimated",
   };
 }
 
@@ -91,11 +95,14 @@ function Counter({
 export default function ReviewForm({
   initial,
   image,
+  previewUrl,
   raw,
   onSaved,
 }: {
   initial: ParsedLog;
   image: { base64: string; mediaType: string } | null;
+  /** Local object URL of the photo, so boxes can be drawn over it before saving. */
+  previewUrl?: string | null;
   raw: unknown;
   onSaved: (date: string) => void;
 }) {
@@ -106,6 +113,33 @@ export default function ReviewForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmReplace, setConfirmReplace] = useState(false);
+  const [layout, setLayout] = useState<Layout>(initial.layout ?? fallbackLayout());
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  /** Tapping a box on the photo jumps to that row's counters. */
+  function focusPeriod(key: string) {
+    setActiveKey(key);
+    rowRefs.current[key]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  const totalsByPeriod = useMemo(
+    () =>
+      Object.fromEntries(
+        periods.map((p) => [p.period_key, KEYS.reduce((acc, k) => acc + p[k], 0)]),
+      ) as Record<string, number>,
+    [periods],
+  );
+
+  const flaggedKeys = useMemo(
+    () =>
+      new Set(
+        periods
+          .filter((p) => p.confidence !== "high" || (p.flags?.length ?? 0) > 0)
+          .map((p) => p.period_key),
+      ),
+    [periods],
+  );
 
   const flaggedCount = useMemo(
     () => periods.filter((p) => p.confidence !== "high" || (p.flags?.length ?? 0) > 0).length,
@@ -137,6 +171,7 @@ export default function ReviewForm({
           image: image?.base64 ?? null,
           mediaType: image?.mediaType ?? null,
           raw,
+          layout,
           replace,
         }),
       });
@@ -157,6 +192,20 @@ export default function ReviewForm({
 
   return (
     <div className="space-y-4">
+      {previewUrl && (
+        <PhotoBoxes
+          src={previewUrl}
+          alt="The behavior log you photographed"
+          layout={layout}
+          totals={totalsByPeriod}
+          flagged={flaggedKeys}
+          activeKey={activeKey}
+          estimated={initial.layout_source === "estimated"}
+          onPick={focusPeriod}
+          onLayoutChange={setLayout}
+        />
+      )}
+
       <section className="card p-4">
         <label className="block text-sm font-medium" htmlFor="log-date">
           Date on this log
@@ -203,8 +252,17 @@ export default function ReviewForm({
         return (
           <section
             key={p.period_key}
-            className="card p-4"
-            style={uncertain ? { borderColor: "var(--warning)", borderWidth: 2 } : undefined}
+            ref={(el) => {
+              rowRefs.current[p.period_key] = el;
+            }}
+            className="card scroll-mt-4 p-4"
+            style={
+              activeKey === p.period_key
+                ? { borderColor: BEHAVIORS[0].color, borderWidth: 2 }
+                : uncertain
+                  ? { borderColor: "var(--warning)", borderWidth: 2 }
+                  : undefined
+            }
           >
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <h3 className="text-sm font-semibold">

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BEHAVIOR_KEYS, PERIOD_KEYS } from "@/lib/behaviors";
+import { normalizeLayout } from "@/lib/geometry";
 import { db, PHOTO_BUCKET } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -50,6 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     date_confirmed?: boolean;
     overall_note?: string | null;
     periods?: PeriodPatch[];
+    layout?: unknown;
   };
   try {
     body = await request.json();
@@ -93,6 +95,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (body.layout !== undefined) {
+    const layout = normalizeLayout(body.layout);
+    if (!layout) {
+      return NextResponse.json({ error: "That box grid doesn't look right." }, { status: 400 });
+    }
+    patch.row_geometry = layout;
+  }
   if (typeof body.overall_note === "string" || body.overall_note === null) {
     patch.overall_note = text(body.overall_note, 4000);
   }
