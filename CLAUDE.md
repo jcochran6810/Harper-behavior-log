@@ -188,6 +188,65 @@ branch merged into `main` and pushed. Do the following in order:
 
 <!-- newest first; append a new dated entry on every "end session" -->
 
+### 2026-09-16 — claude/gallant-babbage-eseube (filtering, settings, photos)
+
+Second session on the same branch. Everything below is additive; nothing from the
+first session was removed except four now-unused query helpers.
+
+**Filtering — the session's main piece**
+- `lib/filters.ts` + `lib/derive.ts`: one filter set (date range, behavior type, class
+  period, day of week) carried in the URL and applied identically to the charts, the
+  table, the report and the CSV. Empty group means "all of it".
+- Pages now call `getLogs()` once and aggregate in TypeScript rather than reading the
+  four `harper_v_*` views; that single source is what makes the filters uniform. The
+  views remain in the database for ad-hoc SQL, and `npm test` checks the two agree.
+- Filtering by behavior narrows counts but NOT the recorded-day count, so per-day
+  averages stay honest. `components/FilterBar.tsx` wraps the content it scopes and dims
+  it during the server round-trip; filters follow you between tabs via `Nav`.
+
+**Report**
+- `lib/report.ts` + `components/ReportOptions.tsx`: the report lists its six sections
+  with a toggle each, so the printed PDF contains exactly what was picked. Selection
+  rides in the URL next to the filters.
+- New appendix section showing the photographed original pages.
+- A filtered report prints a line naming the slice, so a PDF cannot pass itself off as
+  the complete record.
+
+**Charts**
+- `TotalPerDayChart` now prints each day's total under its date (replacing the two
+  selective in-plot labels) — total incidents up the side, school days along the bottom.
+- Stacked chart, legend, heatmap and `LogTable` all take a behavior subset.
+
+**Settings and the PIN**
+- `supabase/migrations/0002_harper_settings.sql` (applied live): `harper_settings`, RLS
+  on with no policies. `lib/pin.ts` stores the PIN as a salted scrypt hash, so it can be
+  changed from `/settings` instead of by redeploying. `APP_PIN` is now only the starting
+  value, used until a PIN is set in the UI; changing it requires the current PIN.
+- `/api/lock` + `LockButton` clear the session cookie. Settings also reports what is
+  stored and whether photo reading is configured.
+
+**Photos**
+- New `/photos` gallery of the original log pages, served through short-lived signed URLs
+  from the private bucket (`lib/photos.ts`).
+- `UploadFlow` offers "pick an existing picture" alongside the camera. The previous
+  capture-only input meant a phone could not choose from its library — that was a real
+  bug, not a missing nicety.
+- Nav is five tabs now; Settings sits behind a gear in `PageHeader`.
+
+**Tests**
+- `npm test` runs `tests/derive.test.js` on plain node — no framework, no secrets, 26
+  checks over a fixture extracted from `seed_september.sql`. The unfiltered expectations
+  are the numbers the SQL views return, so a run cross-checks the TypeScript aggregation
+  against the database's own view definitions.
+
+**Still open**
+- Deployment: the Vercel project still has to be imported by hand (the Claude↔Vercel
+  connection 403s on project creation).
+- The Settings, Photos and PIN-change paths have never run against the real database —
+  no service-role key is available in a web session. They typecheck and build only.
+- The five seeded September days have no stored photo, so the gallery and the report's
+  photo appendix are empty until a log is added by picture.
+
 ### 2026-09-16 — claude/gallant-babbage-eseube (merged to main)
 
 Built the project from an empty repository.
