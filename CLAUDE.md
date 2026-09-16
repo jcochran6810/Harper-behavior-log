@@ -188,6 +188,49 @@ branch merged into `main` and pushed. Do the following in order:
 
 <!-- newest first; append a new dated entry on every "end session" -->
 
+### 2026-09-16 — claude/beautiful-shannon-46kla5 (tappable boxes on the photo)
+
+Same branch, continuing from the counting-accuracy session. One feature: boxes drawn over
+each row of the photographed form, tappable to edit that row.
+
+**The design decision that matters**
+- Free-form bounding boxes from a vision model are not reliable enough for this — a box
+  over the wrong row invites a confident edit to the wrong period, which is worse than no
+  box. So the model is asked for a ROW GRID instead: the form is a fixed ten-row printed
+  table, so each row is just a top and a bottom edge. That is one-dimensional, far more
+  reliable, and cheap to validate.
+- `lib/geometry.ts` (new): `normalizeLayout` REJECTS rather than repairs — ten rows must
+  all be present, in schedule order, ascending, non-overlapping, within the image, with a
+  plausible table width. Anything else falls back to an even ten-way split.
+- Two reads must also agree: `layoutDrift` over 4% of image height falls back. Agreeing
+  grids are averaged.
+- `rescaleBands` powers two drag handles (top of the first row, bottom of the last), which
+  rescale every row proportionally — enough to fix any grid on a flat photograph.
+- Coordinates are image fractions throughout, so they survive resize, thumbnail and zoom.
+
+**Plumbing**
+- `lib/parse.ts`: `row_top`/`row_bottom` per period and `table_left`/`table_right` on the
+  tool schema, with prompt guidance to measure the printed ruled lines rather than the
+  handwriting (handwriting spills across rows). `ParsedLog` carries `layout` plus
+  `layout_source: "measured" | "estimated"`.
+- `supabase/migrations/0003_harper_row_geometry.sql` (applied live): `row_geometry jsonb`
+  on `harper_daily_logs`. `POST /api/logs` stores it only if it validates; `PATCH` accepts
+  an aligned grid, so aligning is saved against the photo rather than the visit.
+- `components/PhotoBoxes.tsx` (new): the overlay. Labels each box with its period and
+  current total, amber where the numbers disagree with the marks, and carries the align
+  mode. Used by `ReviewForm` (over the local preview, before saving) and `DayDetail` (over
+  the stored photo; tapping opens the editor on that row).
+
+**Tests**
+- `tests/geometry.test.js`: 29 checks, most of them asserting that a questionable grid is
+  rejected — rows running up the page, a missing row, a zero-height row, one off the page
+  edge, an unknown row name, a sliver-wide table.
+
+**Unverified**
+- How often the reader actually gets the grid right is unknown; no API key is available in
+  a web session, so this has never run against a real photograph. It degrades safely (bad
+  grid → even split → two drags), but the hit rate is worth watching. See `fix_list.md`.
+
 ### 2026-09-16 — claude/beautiful-shannon-46kla5 (counting accuracy, day pages)
 
 Opened on a real complaint: the 9/10 log reads 66 incidents, more than the paper says.

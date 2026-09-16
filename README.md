@@ -43,6 +43,35 @@ number that's too high is worse than useless in an IEP meeting. Four things guar
 The prompt is explicit that padding a run is a serious error and that a cell full of
 notes with no tally marks is correctly read as zero.
 
+## Tappable boxes on the photo
+
+The photo carries a box over each of the form's ten rows, labelled with the period and
+the number currently recorded against it. Tap one and you land on that row's counters —
+so a miscount is fixed while looking at the marks it came from, without hunting for the
+matching row in a list. Rows whose numbers disagree with their transcribed marks are
+drawn in amber.
+
+The grid comes from the reader, and it can be wrong, so it is treated as a claim to be
+checked rather than fact:
+
+- **It's a row grid, not free-form boxes.** The form is a fixed ten-row printed table, so
+  a row is fully described by a top and a bottom edge. Asking a vision model "where does
+  this row start and end" is a one-dimensional question it answers far more reliably than
+  "draw a rectangle", and the answer is cheap to check: ten rows, present, in schedule
+  order, ascending, not overlapping.
+- **A grid that fails that check is thrown away**, not repaired, in favour of an even
+  ten-way split. A box over the wrong row is worse than an obviously approximate one,
+  because it puts a confident-looking edit on the wrong period.
+- **Two reads must agree.** Each photo is read twice; if the two place a row more than
+  4% of the image apart, neither is trusted and it falls back.
+- **It can always be fixed by hand.** "Line up the boxes" gives two handles — the top of
+  the first row and the bottom of the last. Dragging them rescales every row in between
+  proportionally, which is enough to align any grid on a flat photograph. The aligned
+  grid is saved against that photo.
+
+Coordinates are stored as fractions of the image, so they hold up at any size — thumbnail,
+full screen, or zoomed.
+
 ## One day at a time
 
 Tapping a day — in the table, in the day-by-day list, on a bar in the daily chart, or
@@ -110,7 +139,8 @@ stroke (`||||`) and cursive-loop styles the teacher also uses.
 Everything lives in an existing Supabase project, namespaced with a `harper_` prefix:
 
 - `harper_behaviors`, `harper_periods` — lookups
-- `harper_daily_logs` — one row per school day (plus the raw model output, for audit)
+- `harper_daily_logs` — one row per school day (plus the raw model output, for audit, and
+  `row_geometry`: where each form row sits on the photo, as image fractions)
 - `harper_log_periods` — one row per class period per day, with `b1`…`b8` counts
 - `harper_settings` — app settings a parent can change without a redeploy; currently the
   PIN, stored as a salted scrypt hash

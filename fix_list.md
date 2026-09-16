@@ -16,6 +16,11 @@ Add new items at the top. Use the format:
       true. Open `/day/2026-09-10`, photograph the original page (the button is on that
       page), then use "Fix these numbers". The same is worth doing for 9/8, 9/9, 9/11
       and 9/14, none of which have a photo either.
+- [ ] 2026-09-16 — The row grid behind the photo boxes has never been measured against a
+      real photograph — no API key in a web session. Validation, fallback and the align
+      handles are covered by `tests/geometry.test.js`, but how *often* the reader gets the
+      grid right is unknown. Watch the first few photos: if the boxes usually need
+      aligning, drop the model's grid and just use the even split plus handles.
 - [ ] 2026-09-16 — Deploy: Vercel project must be imported by hand; the Claude↔Vercel
       connection returns 403 on project creation. Once the project exists, set the five
       env vars and attach `hc.stationinsight.com`.
@@ -36,6 +41,12 @@ Add new items at the top. Use the format:
       but a scroll affordance (or a stacked layout on narrow screens) would be better.
 
 ## Done
+
+- [x] 2026-09-16 — Tappable boxes over each row of the photographed form: tap a box to edit
+      that period's numbers. Grid measured by the reader as a validated ten-row band set
+      (`lib/geometry.ts`, `components/PhotoBoxes.tsx`), falling back to an even split when
+      it doesn't hold up, with two drag handles to align it by hand. Stored per photo in
+      `harper_daily_logs.row_geometry`.
 
 - [x] 2026-09-16 — Reading a photo returned `400 ... minItems values other than 0 or 1 are
       not supported`, so photo reading had never worked at all. A strict tool schema only

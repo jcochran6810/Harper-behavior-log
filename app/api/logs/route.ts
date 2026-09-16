@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, PHOTO_BUCKET } from "@/lib/supabase";
 import { PERIOD_KEYS } from "@/lib/behaviors";
+import { normalizeLayout } from "@/lib/geometry";
 import { PARSER_MODEL } from "@/lib/parse";
 import type { PeriodEntry } from "@/lib/types";
 
@@ -17,6 +18,7 @@ type SaveBody = {
   mediaType?: string | null;
   raw?: unknown;
   replace?: boolean;
+  layout?: unknown;
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -85,6 +87,9 @@ export async function POST(request: Request) {
     overall_note: clean(body.overall_note),
     date_confirmed: body.date_confirmed !== false,
     image_path: imagePath,
+    // Only a grid that passes validation is stored; a bad one would put boxes
+    // over the wrong rows, and an even split is the safer default.
+    row_geometry: (normalizeLayout(body.layout) ?? null) as never,
     raw_parse: (body.raw ?? null) as never,
     parsed_by: body.raw ? PARSER_MODEL : "manual",
     updated_at: new Date().toISOString(),
