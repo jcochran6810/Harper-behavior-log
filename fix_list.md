@@ -21,6 +21,10 @@ Add new items at the top. Use the format:
       handles are covered by `tests/geometry.test.js`, but how *often* the reader gets the
       grid right is unknown. Watch the first few photos: if the boxes usually need
       aligning, drop the model's grid and just use the even split plus handles.
+- [ ] 2026-09-16 — Decide, once there are a few hundred training samples, whether a custom
+      counter is worth training at all. If Claude plus `lib/tally.ts` is accurate enough that
+      review is a glance, it isn't — the human confirmation step can't be removed from an IEP
+      record regardless of model quality. Check the corrected-vs-total ratio in Settings.
 - [ ] 2026-09-16 — Deploy: Vercel project must be imported by hand; the Claude↔Vercel
       connection returns 403 on project creation. Once the project exists, set the five
       env vars and attach `hc.stationinsight.com`.
@@ -41,6 +45,12 @@ Add new items at the top. Use the format:
       but a scroll affordance (or a stacked layout on narrow screens) would be better.
 
 ## Done
+
+- [x] 2026-09-16 — Training-set capture: every confirmed review and every later correction
+      records the machine's reading beside the human's verdict, with the cell's box on the
+      photo (`harper_training_samples`, `lib/samples.ts`, `lib/training.ts`). Settings shows
+      the running count and exports JSON Lines. No image copies — crops are derived from the
+      photo plus the stored box.
 
 - [x] 2026-09-16 — Tappable boxes over each row of the photographed form: tap a box to edit
       that period's numbers. Grid measured by the reader as a validated ten-row band set

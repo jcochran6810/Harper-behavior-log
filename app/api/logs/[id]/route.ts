@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { BEHAVIOR_KEYS, PERIOD_KEYS } from "@/lib/behaviors";
 import { normalizeLayout } from "@/lib/geometry";
+import { buildSamples, recordSamples } from "@/lib/training";
 import { db, PHOTO_BUCKET } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -64,6 +65,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // correction is the human's, and the audit trail behind it stays intact.
   if (Array.isArray(body.periods)) {
     const supabase = db();
+
+    // Read the day as it stands before overwriting it: the stored numbers are
+    // what the machine (or an earlier pass) believed, and the incoming ones are
+    // the human's verdict. That pairing is the training sample.
+    const { data: before } = await supabase
+      .from("harper_daily_logs")
+      .select(
+        "log_date, image_path, row_geometry, harper_log_periods (period_key, raw_tally, confidence, b1,b2,b3,b4,b5,b6,b7,b8)",
+      )
+      .eq("id", id)
+      .maybeSingle();
+
     for (const period of body.periods) {
       const key = String(period?.period_key ?? "");
       if (!PERIOD_KEYS.includes(key)) continue;
@@ -92,6 +105,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .update({ updated_at: new Date().toISOString() })
       .eq("id", id);
     if (stampError) return NextResponse.json({ error: stampError.message }, { status: 500 });
+
+    if (before) {
+      const priorByKey = new Map(
+        (before.harper_log_periods ?? []).map((p) => [p.period_key, p]),
+      );
+      await recordSamples(
+        buildSamples({
+          log_id: id,
+          log_date: before.log_date,
+          image_path: before.image_path,
+          layout: normalizeLayout(before.row_geometry),
+          source: "correction",
+          rows: body.periods.flatMap((period) => {
+            const key = String(period?.period_key ?? "");
+            const prior = priorByKey.get(key);
+            if (!prior) return [];
+            return [{
+              period_key: key,
+              model_raw_tally: prior.raw_tally ?? null,
+              model_confidence: prior.confidence ?? null,
+              model: prior,
+              human: period,
+              human_not_observed: Boolean(period.not_observed),
+            }];
+          }),
+        }),
+      );
+    }
   }
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };

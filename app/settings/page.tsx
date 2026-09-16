@@ -5,11 +5,16 @@ import PinSettings from "@/components/PinSettings";
 import { BEHAVIORS, PERIODS } from "@/lib/behaviors";
 import { pinIsCustom } from "@/lib/pin";
 import { getLogs } from "@/lib/queries";
+import { trainingStats } from "@/lib/training";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const [isCustom, logs] = await Promise.all([pinIsCustom(), getLogs()]);
+  const [isCustom, logs, training] = await Promise.all([
+    pinIsCustom(),
+    getLogs(),
+    trainingStats(),
+  ]);
   const withPhotos = logs.filter((log) => log.image_path).length;
   const parsingReady = Boolean(process.env.ANTHROPIC_API_KEY);
 
@@ -32,6 +37,52 @@ export default async function SettingsPage() {
             </p>
             <LockButton />
           </section>
+
+          {training && (
+            <section className="card p-4">
+              <h2 className="text-sm font-semibold">Teaching the reader</h2>
+              <p className="mb-3 mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                Every log you confirm records what the reader thought each row said next to
+                what you agreed it was. Nothing leaves the app — it collects quietly, and one
+                day it could train a counter built for this teacher&apos;s handwriting
+                specifically. No public handwriting dataset covers tally marks like these.
+              </p>
+              <dl className="grid gap-2 text-sm">
+                {[
+                  ["Rows collected", `${training.samples}`],
+                  ["Of those, you corrected", `${training.corrected}`],
+                  ["Linked to a photo", `${training.withCrop}`],
+                  ["School days covered", `${training.days}`],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-baseline justify-between gap-3">
+                    <dt style={{ color: "var(--text-secondary)" }}>{label}</dt>
+                    <dd className="tnum text-right font-medium">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              {training.samples > 0 ? (
+                <p className="mt-4 text-xs">
+                  <a href="/api/training" className="underline">
+                    Download the set (.jsonl)
+                  </a>
+                  {training.corrected > 0 && (
+                    <>
+                      {" · "}
+                      <a href="/api/training?corrected=1" className="underline">
+                        just the corrections
+                      </a>
+                    </>
+                  )}
+                </p>
+              ) : (
+                <p className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
+                  Nothing yet — it starts collecting the first time you confirm a photographed
+                  log. Days typed in by hand teach it nothing, since there was no reading to
+                  compare against.
+                </p>
+              )}
+            </section>
+          )}
 
           <section className="card p-4">
             <h2 className="mb-3 text-sm font-semibold">What&apos;s stored</h2>
