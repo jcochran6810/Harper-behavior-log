@@ -21,6 +21,43 @@ printable summary for the ARD meeting.
    aggregation happens in `lib/derive.ts`, which is what lets a single filter set scope
    the charts, the table, the report and the CSV identically.
 
+## How the counting is kept honest
+
+Reading handwritten tallies is the one place this app can quietly be wrong, and a
+number that's too high is worse than useless in an IEP meeting. Four things guard it:
+
+1. **The model transcribes; the code counts.** The vision model writes down the glyphs
+   it can see in each cell (`raw_tally`, e.g. `1111 66666`). `lib/tally.ts` counts those
+   characters in plain TypeScript. Where the model's own arithmetic disagrees with its
+   transcription, the transcription wins and the row is flagged — the transcription is
+   the part a person can check against the photo.
+2. **Two independent reads.** Each photo is read twice. Cells where both reads agree
+   pass through; cells where they disagree keep the **lower** count and are flagged for
+   a human. Set `PARSER_PASSES=1` to fall back to a single read.
+3. **Contradiction checks.** A period marked "the teacher couldn't observe this" cannot
+   also carry counts; counts with no marks transcribed probably came from the prose
+   notes rather than the page. Both are flagged rather than silently saved.
+4. **A human confirms every number**, with the reason each flagged row was flagged
+   printed next to it, before anything is written.
+
+The prompt is explicit that padding a run is a serious error and that a cell full of
+notes with no tally marks is correctly read as zero.
+
+## One day at a time
+
+Tapping a day — in the table, in the day-by-day list, on a bar in the daily chart, or
+on a page in the gallery — opens `/day/<date>`: the photographed page at the top, every
+period underneath with the marks it was counted from, and the teacher's notes.
+
+**Fix these numbers** turns that page into an editor, so a miscount is corrected in
+place. The day keeps its id, its photo and its original machine reading, so the audit
+trail behind the correction survives. Where the saved numbers no longer match the marks
+transcribed off the page, the row says so and offers to re-count from the marks.
+
+A day with no photo (the September logs were transcribed before the site existed) can
+have the paper photographed and attached from that same page — nothing needs deleting
+and re-entering.
+
 ## Filtering
 
 Every view is scoped by the same filter row, and the filters live in the URL, so a
@@ -41,8 +78,9 @@ as the full record.
 
 - **Add** — photograph the log, or pick an existing picture from the phone, or type it in
   by hand. Every route ends at the same review screen.
-- **Pages** — the original photographs, as a gallery. Private bucket, short-lived signed
-  URLs.
+- **Pages** — the original photographs, as a gallery; each one opens its day. Days with
+  no photo are listed so the paper can still be photographed. Private bucket, short-lived
+  signed URLs.
 - **Report** — lists its own six sections with a toggle for each, so you choose exactly
   what the printed PDF contains, including an appendix of the original log pages.
 - **Settings** — change the shared PIN (stored hashed in the database, so no redeploy),
@@ -92,6 +130,7 @@ Schema: `supabase/migrations/`. Seed data from the first five logs:
 See `.env.example`. Four are required: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 `APP_PIN`, `SESSION_SECRET`. `ANTHROPIC_API_KEY` is needed only for reading photos —
 without it, everything else works and logs can be entered by hand.
+`PARSER_PASSES` is optional (default 2) — how many independent reads to take of each photo.
 
 ## Changing the PIN
 

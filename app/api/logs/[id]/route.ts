@@ -1,7 +1,27 @@
 import { NextResponse } from "next/server";
+import { BEHAVIOR_KEYS, PERIOD_KEYS } from "@/lib/behaviors";
 import { db, PHOTO_BUCKET } from "@/lib/supabase";
 
 export const runtime = "nodejs";
+
+type PeriodPatch = {
+  period_key?: string;
+  notes?: string | null;
+  specials_subject?: string | null;
+  not_observed?: boolean;
+  smiley_count?: number;
+} & Partial<Record<(typeof BEHAVIOR_KEYS)[number], number>>;
+
+function count(value: unknown): number {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 99) : 0;
+}
+
+function text(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,14 +45,57 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let body: { log_date?: string; date_confirmed?: boolean };
+  let body: {
+    log_date?: string;
+    date_confirmed?: boolean;
+    overall_note?: string | null;
+    periods?: PeriodPatch[];
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
 
+  // Correcting the numbers on a saved day. Each period row is updated in place,
+  // so the day keeps its id, its photo and its original machine reading — the
+  // correction is the human's, and the audit trail behind it stays intact.
+  if (Array.isArray(body.periods)) {
+    const supabase = db();
+    for (const period of body.periods) {
+      const key = String(period?.period_key ?? "");
+      if (!PERIOD_KEYS.includes(key)) continue;
+
+      const notObserved = Boolean(period.not_observed);
+      const row: Record<string, unknown> = {
+        not_observed: notObserved,
+        notes: text(period.notes, 4000),
+        smiley_count: count(period.smiley_count),
+        // A hand-checked number is the best reading there is.
+        confidence: "high",
+      };
+      if (key === "specials") row.specials_subject = text(period.specials_subject, 60);
+      for (const bk of BEHAVIOR_KEYS) row[bk] = notObserved ? 0 : count(period[bk]);
+
+      const { error } = await supabase
+        .from("harper_log_periods")
+        .update(row)
+        .eq("log_id", id)
+        .eq("period_key", key);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const { error: stampError } = await supabase
+      .from("harper_daily_logs")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (stampError) return NextResponse.json({ error: stampError.message }, { status: 500 });
+  }
+
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (typeof body.overall_note === "string" || body.overall_note === null) {
+    patch.overall_note = text(body.overall_note, 4000);
+  }
   if (typeof body.log_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.log_date)) {
     patch.log_date = body.log_date;
     patch.date_confirmed = true;

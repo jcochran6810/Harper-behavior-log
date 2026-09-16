@@ -50,7 +50,7 @@ export default async function DataPage({
                 : "No school days match these filters. Widen the date range or clear a filter."}
             </p>
           ) : (
-            <LogTable logs={data.logs} behaviors={data.behaviors} />
+            <LogTable logs={data.logs} behaviors={data.behaviors} query={query} />
           )}
         </FilterBar>
       </main>

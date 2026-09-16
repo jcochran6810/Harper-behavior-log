@@ -62,11 +62,9 @@ export default async function PhotosPage({
                   const url = urls.get(log.image_path as string);
                   const total = log.harper_log_periods.reduce((sum, p) => sum + p.total, 0);
                   return (
-                    <a
+                    <Link
                       key={log.id}
-                      href={`/api/photo/${log.id}`}
-                      target="_blank"
-                      rel="noreferrer"
+                      href={query ? `/day/${log.log_date}?${query}` : `/day/${log.log_date}`}
                       className="card overflow-hidden"
                     >
                       {url ? (
@@ -92,20 +90,36 @@ export default async function PhotosPage({
                           {total} incidents
                         </p>
                       </div>
-                    </a>
+                    </Link>
                   );
                 })}
               </div>
 
               {missing > 0 && (
-                <p className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
-                  {missing} more {missing === 1 ? "day in this slice has" : "days in this slice have"}{" "}
-                  no photo — entered by hand, or transcribed before the site existed.
-                </p>
+                <div className="mt-5">
+                  <p className="mb-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                    {missing} {missing === 1 ? "day has" : "days have"} no photo — entered by hand,
+                    or transcribed before the site existed. Their numbers can&apos;t be checked
+                    against anything. Open one to photograph the paper now:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {data.logs
+                      .filter((log) => !log.image_path)
+                      .map((log) => (
+                        <Link
+                          key={log.id}
+                          href={query ? `/day/${log.log_date}?${query}` : `/day/${log.log_date}`}
+                          className="card px-3 py-1.5 text-xs"
+                        >
+                          {weekdayDate(log.log_date)} →
+                        </Link>
+                      ))}
+                  </div>
+                </div>
               )}
               <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                Tap any page to open it full size. Image links expire after a few minutes, so
-                they can&apos;t be forwarded.
+                Tap any page to open that day — the photo full size, next to the numbers taken
+                off it. Image links expire after a few minutes, so they can&apos;t be forwarded.
               </p>
             </>
           )}

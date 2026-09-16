@@ -9,6 +9,12 @@ export type PeriodEntry = {
   confidence: "high" | "medium" | "low";
   b1: number; b2: number; b3: number; b4: number;
   b5: number; b6: number; b7: number; b8: number;
+  /**
+   * Review-time only — never stored. Notes on how this row's numbers were
+   * arrived at and anything that didn't add up, so the review screen can point
+   * a human straight at the rows worth re-checking against the photo.
+   */
+  flags?: string[];
 };
 
 export type ParsedLog = {
