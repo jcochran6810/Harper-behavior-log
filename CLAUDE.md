@@ -228,8 +228,19 @@ Opened on a real complaint: the 9/10 log reads 66 incidents, more than the paper
   anything — now the paper can be photographed without re-entering the day. The Pages tab
   lists the days still missing one.
 
+**The bug that meant photos never worked at all**
+- Reading any photo failed with `400 ... 'minItems' values other than 0 or 1 are not
+  supported`. A strict tool schema accepts only a subset of JSON Schema, and `periods`
+  declared `minItems: 10, maxItems: 10`. Removed (the ten-row requirement is stated in the
+  description, and a skipped row was already backfilled as an empty flagged period). A
+  schema rejection now retries the read without `strict` instead of failing the upload, and
+  API errors reach the user in plain language rather than raw JSON.
+- The teacher also writes the 6-chain as `lolololo`, which the counter didn't recognise —
+  visible in the 9/9 Reading cell (`III SSS 2222 lolololo`), where the stored 7 sixes should
+  be 4. Both spellings are covered now and asserted in the tests.
+
 **Tests**
-- `tests/tally.test.js`: 38 checks over the counter, including the three real 9/10 cells.
+- `tests/tally.test.js`: 41 checks over the counter, including the three real 9/10 cells.
   `npm test` runs it after `tests/derive.test.js`; still plain node, no framework.
 
 **Not done — needs the paper**

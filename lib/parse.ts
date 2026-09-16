@@ -136,26 +136,44 @@ const periodSchema = {
   ],
 } as const;
 
-const TOOL: Anthropic.Tool = {
-  name: "record_behavior_log",
-  description: "Record the transcribed contents of one day's behavior log.",
-  strict: true,
-  input_schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      date_month: { type: ["integer", "null"], description: "Month from the Date field, or null if blank." },
-      date_day: { type: ["integer", "null"], description: "Day from the Date field, or null if blank." },
-      day_of_week: { type: ["string", "null"], description: "Mon/Tue/Wed/Thu/Fri if written, else null." },
-      overall_note: {
-        type: ["string", "null"],
-        description: "Anything written outside the ten rows — a week heading, a margin note, a scoring key.",
+/**
+ * Strict mode guarantees the tool input matches the schema, which is worth
+ * having — but it only accepts a subset of JSON Schema, and a keyword it
+ * dislikes fails the whole request with a 400 before the photo is ever read.
+ * (That is what `minItems: 10` on `periods` used to do.) So the schema is
+ * built both ways and a schema rejection retries without strict rather than
+ * leaving the user staring at raw API JSON.
+ */
+function buildTool(strict: boolean): Anthropic.Tool {
+  return {
+    name: "record_behavior_log",
+    description: "Record the transcribed contents of one day's behavior log.",
+    ...(strict ? { strict: true } : {}),
+    input_schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        date_month: { type: ["integer", "null"], description: "Month from the Date field, or null if blank." },
+        date_day: { type: ["integer", "null"], description: "Day from the Date field, or null if blank." },
+        day_of_week: { type: ["string", "null"], description: "Mon/Tue/Wed/Thu/Fri if written, else null." },
+        overall_note: {
+          type: ["string", "null"],
+          description: "Anything written outside the ten rows — a week heading, a margin note, a scoring key.",
+        },
+        // No minItems/maxItems here: a strict tool schema only accepts 0 or 1 for
+        // minItems, and the API rejects the whole request otherwise. The count is
+        // stated in the description, and any row the model skips is filled in as
+        // an empty, flagged period below.
+        periods: {
+          type: "array",
+          items: periodSchema,
+          description: "All ten schedule rows, in order, including blank ones.",
+        },
       },
-      periods: { type: "array", items: periodSchema, minItems: 10, maxItems: 10 },
-    },
-    required: ["date_month", "date_day", "day_of_week", "overall_note", "periods"],
-  } as unknown as Anthropic.Tool.InputSchema,
-};
+      required: ["date_month", "date_day", "day_of_week", "overall_note", "periods"],
+    } as unknown as Anthropic.Tool.InputSchema,
+    };
+}
 
 type RawPeriod = {
   period_key: string;
@@ -286,10 +304,17 @@ function settlePeriod(p: RawPeriod): {
   return { counts: reading.counts, confidence, flags };
 }
 
-async function readOnce(
+/** True when a 400 is the API rejecting our tool schema rather than the photo. */
+function isSchemaRejection(err: unknown): boolean {
+  if (!(err instanceof Anthropic.APIError) || err.status !== 400) return false;
+  return /tools\.\d+|input_schema|schema/i.test(err.message);
+}
+
+async function requestRead(
   client: Anthropic,
   base64: string,
   mediaType: "image/jpeg" | "image/png" | "image/webp",
+  strict: boolean,
 ): Promise<RawLog> {
   const response = await client.messages.create({
     model: PARSER_MODEL,
@@ -297,7 +322,7 @@ async function readOnce(
     system: SYSTEM_PROMPT,
     thinking: { type: "adaptive" },
     output_config: { effort: "high" },
-    tools: [TOOL],
+    tools: [buildTool(strict)],
     messages: [
       {
         role: "user",
@@ -322,6 +347,44 @@ async function readOnce(
     );
   }
   return toolUse.input as RawLog;
+}
+
+async function readOnce(
+  client: Anthropic,
+  base64: string,
+  mediaType: "image/jpeg" | "image/png" | "image/webp",
+): Promise<RawLog> {
+  try {
+    return await requestRead(client, base64, mediaType, true);
+  } catch (err) {
+    if (!isSchemaRejection(err)) throw err;
+    // Strict validation refused the schema, not the photo. Read it anyway.
+    return requestRead(client, base64, mediaType, false);
+  }
+}
+
+/** Turn an SDK error into something a parent reading it on a phone can act on. */
+function friendlyError(err: unknown): Error {
+  if (!(err instanceof Anthropic.APIError)) {
+    return err instanceof Error ? err : new Error("Couldn't read that photo.");
+  }
+  if (err.status === 401 || err.status === 403) {
+    return new Error(
+      "The Anthropic API key was rejected, so photos can't be read. Check ANTHROPIC_API_KEY in Vercel, or use “Enter by hand” below.",
+    );
+  }
+  if (err.status === 429) {
+    return new Error("The handwriting reader is rate-limited right now. Wait a minute and try again.");
+  }
+  if (err.status === 400) {
+    return new Error(
+      `The reader rejected this request. That's a bug in the app, not your photo — you can still use “Enter by hand” below. (${err.message.slice(0, 200)})`,
+    );
+  }
+  if (err.status && err.status >= 500) {
+    return new Error("The handwriting reader is having trouble. Try again in a moment.");
+  }
+  return new Error(`Couldn't read that photo: ${err.message.slice(0, 200)}`);
 }
 
 export async function parseLogImage(
@@ -350,9 +413,9 @@ export async function parseLogImage(
 
   if (reads.length === 0) {
     const firstRejection = settled.find((r) => r.status === "rejected");
-    throw firstRejection && firstRejection.status === "rejected"
-      ? (firstRejection.reason as Error)
-      : new Error("Couldn't read that photo.");
+    throw friendlyError(
+      firstRejection && firstRejection.status === "rejected" ? firstRejection.reason : undefined,
+    );
   }
 
   const primary = reads[0];

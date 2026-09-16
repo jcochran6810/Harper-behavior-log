@@ -37,6 +37,11 @@ Add new items at the top. Use the format:
 
 ## Done
 
+- [x] 2026-09-16 — Reading a photo returned `400 ... minItems values other than 0 or 1 are
+      not supported`, so photo reading had never worked at all. A strict tool schema only
+      accepts a subset of JSON Schema and `periods` declared `minItems: 10`. Removed, and a
+      schema rejection now retries without strict rather than failing the upload; API errors
+      are reported in plain language instead of raw JSON.
 - [x] 2026-09-16 — Counting accuracy: the vision model now only transcribes the glyphs,
       and `lib/tally.ts` does the arithmetic; each photo is read twice and a disagreement
       keeps the lower count; not-observed-with-counts and counts-without-marks are flagged;

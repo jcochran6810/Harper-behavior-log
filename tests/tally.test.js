@@ -34,6 +34,10 @@ check("vertical strokes are 1s", readTally("||||||").counts, c({ 1: 6 }));
 check("lowercase l strokes are 1s", readTally("llll").counts, c({ 1: 4 }));
 check("a cursive loop chain is 6s", readTally("lelelele").counts, c({ 6: 4 }));
 check("an ec chain is 6s", readTally("ececec").counts, c({ 6: 3 }));
+// From the real 9/9 page: the Reading cell reads "III SSS 2222 lolololo".
+check("an lo chain is 6s", readTally("lolololo").counts, c({ 6: 4 }));
+check("9/9 reading row, whole cell", readTally("III SSS 2222 lolololo").counts,
+  c({ 1: 3, 5: 3, 2: 4, 6: 4 }));
 check("S glyphs are 5s", readTally("SSS").counts, c({ 5: 3 }));
 
 // --- separators the transcription might use --------------------------------

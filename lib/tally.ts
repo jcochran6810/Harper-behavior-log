@@ -35,10 +35,12 @@ const SEPARATOR = /[\s,;.·•\-–—_/\\+&]+/;
 
 /**
  * A cursive chain of connected loops — the teacher's shorthand for a run of 6s.
- * It has to alternate: a plain run of l's is vertical strokes (behavior 1), not
- * loops, and reading "llll" as 6s would put marks under the wrong behavior.
+ * The teacher writes it several ways — "lelelele", "lolololo", "ececec" — but it
+ * always alternates. That matters: a plain run of l's is vertical strokes
+ * (behavior 1), and reading "llll" as 6s would file marks under the wrong
+ * behavior entirely.
  */
-const LOOP_CHAIN = /^(?:le|el|ec|ce)+$/i;
+const LOOP_CHAIN = /^(?:l[oe]|[oe]l|ec|ce)+$/i;
 
 /** Vertical strokes, however they got transcribed, are behavior 1. */
 const STROKES = /^[|ıI¦l1]+$/;
