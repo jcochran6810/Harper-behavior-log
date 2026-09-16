@@ -107,6 +107,11 @@ export default function ReviewForm({
   const [error, setError] = useState<string | null>(null);
   const [confirmReplace, setConfirmReplace] = useState(false);
 
+  const flaggedCount = useMemo(
+    () => periods.filter((p) => p.confidence !== "high" || (p.flags?.length ?? 0) > 0).length,
+    [periods],
+  );
+
   const dayTotal = useMemo(
     () => periods.reduce((sum, p) => sum + KEYS.reduce((acc, k) => acc + p[k], 0), 0),
     [periods],
@@ -176,13 +181,25 @@ export default function ReviewForm({
         style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}
       >
         <strong className="tnum text-lg">{dayTotal}</strong> incidents counted on this page.
-        Check the numbers against the photo, fix anything wrong, then save.
+        {flaggedCount > 0 ? (
+          <>
+            {" "}
+            <strong style={{ color: "var(--warning)" }}>
+              {flaggedCount} {flaggedCount === 1 ? "row needs" : "rows need"} a second look
+            </strong>{" "}
+            — they&apos;re outlined below with the reason. Check every number against the photo,
+            fix anything wrong, then save.
+          </>
+        ) : (
+          " Check the numbers against the photo, fix anything wrong, then save."
+        )}
       </div>
 
       {periods.map((p, i) => {
         const meta = PERIODS.find((x) => x.key === p.period_key)!;
         const subtotal = KEYS.reduce((acc, k) => acc + p[k], 0);
         const uncertain = p.confidence !== "high";
+        const flags = p.flags ?? [];
         return (
           <section
             key={p.period_key}
@@ -201,10 +218,21 @@ export default function ReviewForm({
               </span>
             </div>
 
-            {uncertain && (
+            {uncertain && flags.length === 0 && (
               <p className="mb-2 text-xs" style={{ color: "var(--text-secondary)" }}>
                 ⚠ Hard to read — please double-check this row.
               </p>
+            )}
+
+            {flags.length > 0 && (
+              <ul
+                className="mb-2 space-y-1 rounded-lg px-2.5 py-2 text-xs"
+                style={{ background: "var(--page)", color: "var(--text-secondary)" }}
+              >
+                {flags.map((flag, fi) => (
+                  <li key={fi}>⚠ {flag}</li>
+                ))}
+              </ul>
             )}
 
             {p.raw_tally && (

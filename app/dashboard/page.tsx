@@ -27,6 +27,7 @@ export default async function DashboardPage({
   const filters = parseFilters(await searchParams);
   const data = buildDataset(await getLogs(), filters);
   const s = summarize(data.dailyTotals, data.behaviorDaily, data.periodTotals, data.behaviors);
+  const query = serializeFilters(filters);
 
   const dates = data.dailyTotals.map((d) => d.log_date);
   const countsByCode = new Map<number, Map<string, number>>();
@@ -122,7 +123,10 @@ export default async function DashboardPage({
                     ? "Every behavior type combined."
                     : `Only the ${data.behaviors.length} selected behavior ${data.behaviors.length === 1 ? "type" : "types"}.`}
                 </p>
-                <TotalPerDayChart data={data.dailyTotals} />
+                <TotalPerDayChart
+                  data={data.dailyTotals}
+                  dayHref={(date) => (query ? `/day/${date}?${query}` : `/day/${date}`)}
+                />
               </section>
 
               {data.behaviors.length > 1 && (
@@ -199,7 +203,7 @@ export default async function DashboardPage({
           )}
         </FilterBar>
       </main>
-      <Nav query={serializeFilters(filters)} />
+      <Nav query={query} />
     </>
   );
 }

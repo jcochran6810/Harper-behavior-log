@@ -37,6 +37,17 @@ export async function getLog(id: string): Promise<LogWithPeriods | null> {
   return (data as unknown as LogWithPeriods) ?? null;
 }
 
+/** One day, by its date — the day-detail page's single read. */
+export async function getLogByDateFull(date: string): Promise<LogWithPeriods | null> {
+  const { data, error } = await db()
+    .from("harper_daily_logs")
+    .select(LOG_COLUMNS)
+    .eq("log_date", date)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as unknown as LogWithPeriods) ?? null;
+}
+
 export async function getLogByDate(date: string): Promise<{ id: string } | null> {
   const { data, error } = await db()
     .from("harper_daily_logs")

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsc lib/derive.ts lib/filters.ts lib/behaviors.ts --module commonjs --target es2022 --moduleResolution node --outDir .test-build --skipLibCheck && node tests/derive.test.js"
+    "test": "tsc lib/derive.ts lib/filters.ts lib/behaviors.ts lib/tally.ts --module commonjs --target es2022 --moduleResolution node --outDir .test-build --skipLibCheck && node tests/derive.test.js && node tests/tally.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

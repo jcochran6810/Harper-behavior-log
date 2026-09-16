@@ -188,6 +188,66 @@ branch merged into `main` and pushed. Do the following in order:
 
 <!-- newest first; append a new dated entry on every "end session" -->
 
+### 2026-09-16 — claude/beautiful-shannon-46kla5 (counting accuracy, day pages)
+
+Opened on a real complaint: the 9/10 log reads 66 incidents, more than the paper says.
+
+**Counting accuracy — the session's main piece**
+- `lib/tally.ts` (new): counts tally glyphs deterministically. The vision model's two
+  jobs — transcribe and count — are now split, and it only does the first. It writes the
+  glyphs it can see into `raw_tally`; TypeScript counts the characters. Where the model's
+  own `counts` disagree with its own transcription, the transcription wins and the row is
+  flagged. Handles repeated digits, stroke runs (`||||`), cursive loop chains (`lelele`)
+  and S-runs; a run of `l`s is strokes, not loops, which is a wrong-behavior bug avoided.
+- `lib/parse.ts`: each photo is read **twice** independently (`PARSER_PASSES`, default 2).
+  Agreeing cells pass; disagreeing cells keep the **lower** count and are flagged — an IEP
+  record should never overstate. A failed second read degrades to one read plus a flag
+  rather than failing the upload.
+- Contradiction checks: `not_observed` with counts (which is exactly what the seeded 9/10
+  Specials row does) clears the counts and flags; counts with no marks transcribed flags,
+  because those numbers probably came from the prose notes.
+- Prompt rewritten around the actual failure mode. It now states that the transcription is
+  the answer and the arithmetic isn't the model's to do, that padding a run is a serious
+  error, that runs over ~8 should be re-counted, that notes without marks correctly read as
+  zero, and that marking a row uncertain costs nothing because a human checks it anyway.
+- `PeriodEntry.flags` (review-time only, never stored) carries the reason to the UI;
+  `ReviewForm` prints it per row and counts the flagged rows at the top.
+
+**Day pages**
+- `app/day/[date]/page.tsx` + `components/DayDetail.tsx` (new): one day in full — the
+  photographed page (tap to zoom), every period with the marks it was counted from, notes,
+  and **Fix these numbers**, an in-place editor. Rows whose stored numbers no longer match
+  their transcribed marks are outlined with a one-tap "use the count from the marks".
+- Reachable from the table dates, the day-by-day list, a bar on the daily chart, and the
+  Pages gallery. `LogTable`'s accordion became linked cards; its fix-date and delete moved
+  to the day page, which made `LogTable` a server component again.
+- `PATCH /api/logs/[id]` now accepts period corrections (in place, so the day keeps its id,
+  photo and original `raw_parse`); a hand-checked row is stored at `confidence: 'high'`.
+- `POST /api/logs/[id]/photo` (new): attach or replace the photo on an existing day. The
+  five September logs have no picture, so their numbers couldn't be checked against
+  anything — now the paper can be photographed without re-entering the day. The Pages tab
+  lists the days still missing one.
+
+**The bug that meant photos never worked at all**
+- Reading any photo failed with `400 ... 'minItems' values other than 0 or 1 are not
+  supported`. A strict tool schema accepts only a subset of JSON Schema, and `periods`
+  declared `minItems: 10, maxItems: 10`. Removed (the ten-row requirement is stated in the
+  description, and a skipped row was already backfilled as an empty flagged period). A
+  schema rejection now retries the read without `strict` instead of failing the upload, and
+  API errors reach the user in plain language rather than raw JSON.
+- The teacher also writes the 6-chain as `lolololo`, which the counter didn't recognise —
+  visible in the 9/9 Reading cell (`III SSS 2222 lolololo`), where the stored 7 sixes should
+  be 4. Both spellings are covered now and asserted in the tests.
+
+**Tests**
+- `tests/tally.test.js`: 41 checks over the counter, including the three real 9/10 cells.
+  `npm test` runs it after `tests/derive.test.js`; still plain node, no framework.
+
+**Not done — needs the paper**
+- The 9/10 numbers themselves were left alone. Without the original page there's no way to
+  tell a correct 8 from an inflated one, and guessing at an IEP record is worse than the
+  bug. The tools to fix it in under a minute are in place; see `fix_list.md`.
+
 ### 2026-09-16 — claude/gallant-babbage-eseube (filtering, settings, photos)
 
 Second session on the same branch. Everything below is additive; nothing from the

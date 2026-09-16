@@ -32,7 +32,14 @@ const SURFACE = "var(--surface-1)";
 
 /* ------------------------------------------------------------ total per day */
 
-export function TotalPerDayChart({ data }: { data: DailyTotal[] }) {
+export function TotalPerDayChart({
+  data,
+  /** When set, each bar links to that day's page. Left off for the printed report. */
+  dayHref,
+}: {
+  data: DailyTotal[];
+  dayHref?: (isoDate: string) => string;
+}) {
   const W = 760, H = 320;
   // Bottom band holds three stacked rows: date, weekday, and the day's total.
   const M = { top: 20, right: 16, bottom: 64, left: 44 };
@@ -65,9 +72,24 @@ export function TotalPerDayChart({ data }: { data: DailyTotal[] }) {
         const h = (d.total / max) * plotH;
         const x = M.left + i * band + (band - barW) / 2;
         const cx = x + barW / 2;
-        return (
-          <g key={d.log_date}>
-            <title>{`${weekdayDate(d.log_date)}: ${d.total} incidents`}</title>
+        const body = (
+          <>
+            <title>
+              {dayHref
+                ? `${weekdayDate(d.log_date)}: ${d.total} incidents — open this day`
+                : `${weekdayDate(d.log_date)}: ${d.total} incidents`}
+            </title>
+            {/* A full-height hit area, so the whole column is tappable on a phone
+                rather than just the bar itself. */}
+            {dayHref && (
+              <rect
+                x={M.left + i * band}
+                y={M.top}
+                width={band}
+                height={plotH + M.bottom - 12}
+                fill="transparent"
+              />
+            )}
             <rect x={x} y={baseline - h} width={barW} height={Math.max(h, 0)} rx={4} fill={BEHAVIORS[0].color} />
             {h > 4 && <rect x={x} y={baseline - 4} width={barW} height={4} fill={BEHAVIORS[0].color} />}
             <text x={cx} y={baseline + 20} textAnchor="middle" fontSize={12} fill={MUTED}>
@@ -80,7 +102,14 @@ export function TotalPerDayChart({ data }: { data: DailyTotal[] }) {
             <text x={cx} y={baseline + 52} textAnchor="middle" fontSize={13} fontWeight={600} fill={INK} className="tnum">
               {d.total}
             </text>
-          </g>
+          </>
+        );
+        return dayHref ? (
+          <a key={d.log_date} href={dayHref(d.log_date)} className="cursor-pointer">
+            {body}
+          </a>
+        ) : (
+          <g key={d.log_date}>{body}</g>
         );
       })}
     </svg>
