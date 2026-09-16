@@ -1,4 +1,4 @@
-import { BEHAVIORS } from "./behaviors";
+import { BEHAVIORS, type Behavior } from "./behaviors";
 import type { BehaviorDaily, DailyTotal, PeriodTotal } from "./types";
 
 export type Summary = {
@@ -19,11 +19,12 @@ export function summarize(
   totals: DailyTotal[],
   behaviorDaily: BehaviorDaily[],
   periodTotals: PeriodTotal[],
+  behaviors: Behavior[] = BEHAVIORS,
 ): Summary {
   const total = totals.reduce((sum, d) => sum + d.total, 0);
   const days = totals.length;
 
-  const perBehavior = BEHAVIORS.map((b) => {
+  const perBehavior = behaviors.map((b) => {
     const sum = behaviorDaily
       .filter((row) => row.code === b.code)
       .reduce((acc, row) => acc + row.count, 0);

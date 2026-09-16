@@ -11,7 +11,8 @@ type Stage = "idle" | "working" | "review" | "done";
 
 export default function UploadFlow() {
   const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const libraryRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +72,8 @@ export default function UploadFlow() {
     setSavedDate(null);
     setError(null);
     setStage("idle");
-    if (fileRef.current) fileRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
+    if (libraryRef.current) libraryRef.current.value = "";
   }
 
   if (stage === "done" && savedDate) {
@@ -141,10 +143,20 @@ export default function UploadFlow() {
   return (
     <div className="space-y-4">
       <input
-        ref={fileRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
+        className="sr-only"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleFile(file);
+        }}
+      />
+      <input
+        ref={libraryRef}
+        type="file"
+        accept="image/*"
         className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -176,14 +188,23 @@ export default function UploadFlow() {
         <>
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => cameraRef.current?.click()}
             className="w-full rounded-2xl py-6 text-base font-semibold text-white"
             style={{ background: BEHAVIORS[0].color }}
           >
             📷 Take a photo of the log
           </button>
+          <button
+            type="button"
+            onClick={() => libraryRef.current?.click()}
+            className="w-full rounded-2xl border py-4 text-base font-medium"
+            style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}
+          >
+            📁 Upload a picture from this phone
+          </button>
           <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
-            Lay the page flat, get all ten rows in frame, and avoid shadows.
+            Lay the page flat, get all ten rows in frame, and avoid shadows. Either way you
+            check the numbers before anything is saved.
           </p>
         </>
       )}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
-import { COOKIE_NAME, createSessionToken, safeEqual, sessionCookieOptions } from "@/lib/session";
+import { checkPin } from "@/lib/pin";
+import { COOKIE_NAME, createSessionToken, sessionCookieOptions } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -14,10 +15,9 @@ function clientIp(request: Request): string {
 
 export async function POST(request: Request) {
   const secret = process.env.SESSION_SECRET;
-  const expected = process.env.APP_PIN;
-  if (!secret || !expected) {
+  if (!secret) {
     return NextResponse.json(
-      { error: "This site isn't finished setting up (missing APP_PIN or SESSION_SECRET)." },
+      { error: "This site isn't finished setting up (missing SESSION_SECRET)." },
       { status: 500 },
     );
   }
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const ok = safeEqual(pin, expected);
+  const ok = await checkPin(pin);
   await supabase.from("harper_pin_attempts").insert({ ip, ok });
 
   if (!ok) {

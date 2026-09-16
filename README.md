@@ -17,7 +17,36 @@ printable summary for the ARD meeting.
 4. **Review** — nothing is written to the database until you confirm. Rows the model was
    unsure about are outlined in amber. The date is required; the form's date box is often
    blank, so it defaults to today and asks you to set it.
-5. **Charts, table, report** — all rendered server-side from Postgres views.
+5. **Charts, table, report** — rendered server-side. One query pulls every log; all
+   aggregation happens in `lib/derive.ts`, which is what lets a single filter set scope
+   the charts, the table, the report and the CSV identically.
+
+## Filtering
+
+Every view is scoped by the same filter row, and the filters live in the URL, so a
+filtered view can be bookmarked or shared as a link. Four dimensions, combinable:
+
+- **When** — all time, last 7 / 30 / 90 days, this month, or a custom from–to window
+- **Behavior** — any subset of the eight numbered behaviors
+- **Class / time of day** — any subset of the ten daily periods
+- **Day of week** — Mon–Fri
+
+An empty group means "all of it". Filtering by behavior narrows the counts but *not* the
+number of school days, so a per-day average stays honest: "aggression only" across five
+recorded days is 13 over 5 days, not 13 over the 3 days it happened on. A filtered report
+prints a line saying exactly which slice it covers, so a PDF can never misrepresent itself
+as the full record.
+
+## The other pages
+
+- **Add** — photograph the log, or pick an existing picture from the phone, or type it in
+  by hand. Every route ends at the same review screen.
+- **Pages** — the original photographs, as a gallery. Private bucket, short-lived signed
+  URLs.
+- **Report** — lists its own six sections with a toggle for each, so you choose exactly
+  what the printed PDF contains, including an appendix of the original log pages.
+- **Settings** — change the shared PIN (stored hashed in the database, so no redeploy),
+  lock the device, and see what the app has stored.
 
 ## The eight behaviors
 
@@ -45,13 +74,17 @@ Everything lives in an existing Supabase project, namespaced with a `harper_` pr
 - `harper_behaviors`, `harper_periods` — lookups
 - `harper_daily_logs` — one row per school day (plus the raw model output, for audit)
 - `harper_log_periods` — one row per class period per day, with `b1`…`b8` counts
-- `harper_v_*` — views that feed the charts
+- `harper_settings` — app settings a parent can change without a redeploy; currently the
+  PIN, stored as a salted scrypt hash
+- `harper_v_*` — SQL views over the same data, kept for ad-hoc queries in the Supabase
+  dashboard. The app derives its own aggregates in TypeScript so filters apply uniformly;
+  `npm test` cross-checks the two agree.
 - `harper-logs` — a **private** storage bucket for the original photos
 
 Row-level security is enabled with no policies, so the public API keys can read nothing.
 All access goes through server-side route handlers using the service-role key.
 
-Schema: `supabase/migrations/0001_harper_init.sql`. Seed data from the first five logs:
+Schema: `supabase/migrations/`. Seed data from the first five logs:
 `supabase/seed_september.sql`.
 
 ## Environment variables
@@ -62,8 +95,12 @@ without it, everything else works and logs can be entered by hand.
 
 ## Changing the PIN
 
-Vercel → the project → Settings → Environment Variables → edit `APP_PIN` → redeploy.
-No code change.
+Use the **Settings** page in the app. It stores a hashed PIN in the database and takes
+effect immediately for everyone.
+
+`APP_PIN` in the environment is only the starting PIN — it's what the app falls back to
+until someone changes it in Settings. Once a PIN has been set in the app, the env var is
+ignored.
 
 ## Local development
 
@@ -72,6 +109,9 @@ npm install
 cp .env.example .env.local   # then fill in the two secrets
 npm run dev
 ```
+
+`npm run typecheck` and `npm test` both run without any secrets — the tests work off a
+fixture extracted from the seed data, on plain node, with no test framework.
 
 ## A note on security
 
