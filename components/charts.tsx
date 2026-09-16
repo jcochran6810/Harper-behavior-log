@@ -1,0 +1,348 @@
+import { BEHAVIORS, rampColor, rampInk } from "@/lib/behaviors";
+import type { BehaviorDaily, DailyTotal, PeriodBehavior, PeriodTotal } from "@/lib/types";
+
+export function shortDate(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return `${Number(m)}/${Number(d)}`;
+}
+
+export function weekdayDate(iso: string): string {
+  const date = new Date(`${iso}T12:00:00Z`);
+  const day = date.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+  return `${day} ${shortDate(iso)}`;
+}
+
+/** Round an axis maximum up to a clean number. */
+function niceMax(value: number): number {
+  if (value <= 5) return 5;
+  const step = value > 100 ? 20 : value > 40 ? 10 : 5;
+  return Math.ceil(value / step) * step;
+}
+
+function ticks(max: number, count = 4): number[] {
+  const step = max / count;
+  return Array.from({ length: count + 1 }, (_, i) => Math.round(i * step));
+}
+
+const GRID = "var(--grid)";
+const AXIS = "var(--axis)";
+const MUTED = "var(--text-muted)";
+const INK = "var(--text-primary)";
+const SURFACE = "var(--surface-1)";
+
+/* ------------------------------------------------------------ total per day */
+
+export function TotalPerDayChart({ data }: { data: DailyTotal[] }) {
+  const W = 760, H = 300;
+  const M = { top: 20, right: 16, bottom: 44, left: 44 };
+  const plotW = W - M.left - M.right;
+  const plotH = H - M.top - M.bottom;
+
+  if (data.length === 0) return <EmptyPlot label="No logs yet" />;
+
+  const max = niceMax(Math.max(...data.map((d) => d.total), 1));
+  const band = plotW / data.length;
+  const barW = Math.min(24, band * 0.55);
+  const peak = data.reduce((a, b) => (b.total > a.total ? b : a));
+  const latest = data[data.length - 1];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img"
+      aria-label={`Total incidents per day, ${data.length} days recorded`}>
+      {ticks(max).map((t) => {
+        const y = M.top + plotH - (t / max) * plotH;
+        return (
+          <g key={t}>
+            <line x1={M.left} x2={W - M.right} y1={y} y2={y} stroke={t === 0 ? AXIS : GRID} strokeWidth={1} />
+            <text x={M.left - 8} y={y + 4} textAnchor="end" fontSize={12} fill={MUTED} className="tnum">
+              {t}
+            </text>
+          </g>
+        );
+      })}
+
+      {data.map((d, i) => {
+        const h = (d.total / max) * plotH;
+        const x = M.left + i * band + (band - barW) / 2;
+        const y = M.top + plotH - h;
+        const label = d.log_date === peak.log_date || d.log_date === latest.log_date;
+        return (
+          <g key={d.log_date}>
+            <title>{`${weekdayDate(d.log_date)}: ${d.total} incidents`}</title>
+            <rect x={x} y={y} width={barW} height={Math.max(h, 0)} rx={4} fill={BEHAVIORS[0].color} />
+            {h > 4 && <rect x={x} y={M.top + plotH - 4} width={barW} height={4} fill={BEHAVIORS[0].color} />}
+            {label && (
+              <text x={x + barW / 2} y={y - 8} textAnchor="middle" fontSize={13} fontWeight={600} fill={INK} className="tnum">
+                {d.total}
+              </text>
+            )}
+            <text x={x + barW / 2} y={M.top + plotH + 20} textAnchor="middle" fontSize={12} fill={MUTED}>
+              {shortDate(d.log_date)}
+            </text>
+            <text x={x + barW / 2} y={M.top + plotH + 36} textAnchor="middle" fontSize={11} fill={MUTED}>
+              {d.day_of_week ?? ""}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ------------------------------------------------- stacked breakdown per day */
+
+export function StackedByBehaviorChart({
+  totals,
+  behaviorDaily,
+}: {
+  totals: DailyTotal[];
+  behaviorDaily: BehaviorDaily[];
+}) {
+  const W = 760, H = 300;
+  const M = { top: 20, right: 16, bottom: 44, left: 44 };
+  const plotW = W - M.left - M.right;
+  const plotH = H - M.top - M.bottom;
+
+  if (totals.length === 0) return <EmptyPlot label="No logs yet" />;
+
+  const byDate = new Map<string, Map<number, number>>();
+  for (const row of behaviorDaily) {
+    if (!byDate.has(row.log_date)) byDate.set(row.log_date, new Map());
+    byDate.get(row.log_date)!.set(row.code, row.count);
+  }
+
+  const max = niceMax(Math.max(...totals.map((d) => d.total), 1));
+  const band = plotW / totals.length;
+  const barW = Math.min(24, band * 0.55);
+  const GAP = 2; // surface gap between stacked segments
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img"
+      aria-label="Incidents per day, broken down by behavior type">
+      {ticks(max).map((t) => {
+        const y = M.top + plotH - (t / max) * plotH;
+        return (
+          <g key={t}>
+            <line x1={M.left} x2={W - M.right} y1={y} y2={y} stroke={t === 0 ? AXIS : GRID} strokeWidth={1} />
+            <text x={M.left - 8} y={y + 4} textAnchor="end" fontSize={12} fill={MUTED} className="tnum">
+              {t}
+            </text>
+          </g>
+        );
+      })}
+
+      {totals.map((day, i) => {
+        const counts = byDate.get(day.log_date) ?? new Map();
+        const x = M.left + i * band + (band - barW) / 2;
+        let cursor = M.top + plotH;
+        return (
+          <g key={day.log_date}>
+            {BEHAVIORS.map((b) => {
+              const value = counts.get(b.code) ?? 0;
+              if (value <= 0) return null;
+              const h = (value / max) * plotH;
+              cursor -= h;
+              const y = cursor;
+              return (
+                <rect
+                  key={b.code}
+                  x={x}
+                  y={y}
+                  width={barW}
+                  height={Math.max(h - GAP, 1)}
+                  rx={2}
+                  fill={b.color}
+                >
+                  <title>{`${weekdayDate(day.log_date)} — ${b.short}: ${value}`}</title>
+                </rect>
+              );
+            })}
+            <text x={x + barW / 2} y={M.top + plotH + 20} textAnchor="middle" fontSize={12} fill={MUTED}>
+              {shortDate(day.log_date)}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function BehaviorLegend() {
+  return (
+    <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+      {BEHAVIORS.map((b) => (
+        <li key={b.code} className="flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+            style={{ background: b.color }}
+          />
+          <span>
+            {b.code}. {b.short}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ------------------------------------------------ one small chart per behavior */
+
+export function BehaviorMiniChart({
+  code,
+  dates,
+  values,
+}: {
+  code: number;
+  dates: string[];
+  values: number[];
+}) {
+  const behavior = BEHAVIORS.find((b) => b.code === code)!;
+  const W = 300, H = 108;
+  const M = { top: 14, right: 8, bottom: 20, left: 8 };
+  const plotW = W - M.left - M.right;
+  const plotH = H - M.top - M.bottom;
+  const total = values.reduce((a, b) => a + b, 0);
+  const max = Math.max(...values, 1);
+  const band = plotW / Math.max(values.length, 1);
+  const barW = Math.min(18, band * 0.6);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img"
+      aria-label={`${behavior.label}: ${total} total`}>
+      <line x1={M.left} x2={W - M.right} y1={M.top + plotH} y2={M.top + plotH} stroke={AXIS} strokeWidth={1} />
+      {values.map((value, i) => {
+        const h = (value / max) * plotH;
+        const x = M.left + i * band + (band - barW) / 2;
+        return (
+          <g key={dates[i]}>
+            <title>{`${weekdayDate(dates[i])}: ${value}`}</title>
+            {value > 0 && (
+              <rect x={x} y={M.top + plotH - h} width={barW} height={h} rx={4} fill={behavior.color} />
+            )}
+            <text x={x + barW / 2} y={H - 6} textAnchor="middle" fontSize={10} fill={MUTED}>
+              {shortDate(dates[i])}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* --------------------------------------------------------- period × behavior */
+
+export function PeriodHeatmap({
+  periodTotals,
+  periodBehavior,
+}: {
+  periodTotals: PeriodTotal[];
+  periodBehavior: PeriodBehavior[];
+}) {
+  const lookup = new Map<string, number>();
+  for (const row of periodBehavior) {
+    lookup.set(`${row.period_key}:${row.code}`, row.count);
+  }
+  const max = Math.max(...periodBehavior.map((r) => r.count), 1);
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[560px] border-collapse text-sm">
+        <caption className="sr-only">
+          Incidents by class period and behavior type. Darker cells mean more incidents.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" className="p-2 text-left text-xs font-medium" style={{ color: MUTED }}>
+              Class
+            </th>
+            {BEHAVIORS.map((b) => (
+              <th
+                key={b.code}
+                scope="col"
+                className="p-1 text-center text-xs font-medium"
+                style={{ color: MUTED }}
+                title={b.label}
+              >
+                {b.code}
+              </th>
+            ))}
+            <th scope="col" className="p-2 text-right text-xs font-medium" style={{ color: MUTED }}>
+              Total
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {periodTotals.map((period) => (
+            <tr key={period.period_key}>
+              <th scope="row" className="whitespace-nowrap p-2 text-left font-normal">
+                {period.period_label}
+                <span className="ml-1 text-xs" style={{ color: MUTED }}>
+                  {period.time_range}
+                </span>
+              </th>
+              {BEHAVIORS.map((b) => {
+                const value = lookup.get(`${period.period_key}:${b.code}`) ?? 0;
+                return (
+                  <td
+                    key={b.code}
+                    className="p-0 text-center"
+                    title={`${period.period_label} — ${b.label}: ${value}`}
+                  >
+                    <div
+                      className="tnum m-[2px] rounded py-2 text-xs"
+                      style={{
+                        background: rampColor(value, max),
+                        color: value > 0 ? rampInk(value, max) : MUTED,
+                      }}
+                    >
+                      {value > 0 ? value : "·"}
+                    </div>
+                  </td>
+                );
+              })}
+              <td className="tnum p-2 text-right font-semibold">{period.total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ helpers */
+
+function EmptyPlot({ label }: { label: string }) {
+  return (
+    <div
+      className="flex h-40 items-center justify-center rounded-lg text-sm"
+      style={{ color: MUTED, background: SURFACE }}
+    >
+      {label}
+    </div>
+  );
+}
+
+export function StatTile({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string | number;
+  note?: string;
+}) {
+  return (
+    <div className="card p-4">
+      <p className="text-xs" style={{ color: MUTED }}>
+        {label}
+      </p>
+      <p className="mt-1 text-3xl font-semibold leading-none">{value}</p>
+      {note && (
+        <p className="mt-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+          {note}
+        </p>
+      )}
+    </div>
+  );
+}
