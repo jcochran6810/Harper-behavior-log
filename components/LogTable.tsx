@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { BEHAVIORS, PERIOD_KEYS, periodLabel } from "@/lib/behaviors";
+import { BEHAVIORS, PERIOD_KEYS, periodLabel, type Behavior } from "@/lib/behaviors";
 import type { LogWithPeriods } from "@/lib/types";
 
 const KEYS = ["b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"] as const;
@@ -16,14 +16,22 @@ function weekday(iso: string): string {
   });
 }
 
-export default function LogTable({ logs }: { logs: LogWithPeriods[] }) {
+export default function LogTable({
+  logs,
+  behaviors = BEHAVIORS,
+}: {
+  logs: LogWithPeriods[];
+  behaviors?: Behavior[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState<string | null>(logs[0]?.id ?? null);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
 
   const dayTotals = (log: LogWithPeriods) =>
-    KEYS.map((k) => log.harper_log_periods.reduce((sum, p) => sum + p[k], 0));
+    behaviors.map((b) =>
+      log.harper_log_periods.reduce((sum, p) => sum + p[`b${b.code}` as (typeof KEYS)[number]], 0),
+    );
 
   async function remove(id: string) {
     setBusy(id);
@@ -61,7 +69,7 @@ export default function LogTable({ logs }: { logs: LogWithPeriods[] }) {
               <th scope="col" className="px-4 py-2 text-left text-xs font-medium">
                 Date
               </th>
-              {BEHAVIORS.map((b) => (
+              {behaviors.map((b) => (
                 <th
                   key={b.code}
                   scope="col"
@@ -111,7 +119,7 @@ export default function LogTable({ logs }: { logs: LogWithPeriods[] }) {
           </tbody>
         </table>
         <p className="px-4 pb-4 pt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-          {BEHAVIORS.map((b) => `${b.code}. ${b.short}`).join(" · ")}
+          {behaviors.map((b) => `${b.code}. ${b.short}`).join(" · ")}
         </p>
       </section>
 
@@ -170,7 +178,7 @@ export default function LogTable({ logs }: { logs: LogWithPeriods[] }) {
 
                     <ul className="space-y-2">
                       {periods.map((p) => {
-                        const active = BEHAVIORS.filter((b) => p[`b${b.code}` as (typeof KEYS)[number]] > 0);
+                        const active = behaviors.filter((b) => p[`b${b.code}` as (typeof KEYS)[number]] > 0);
                         if (!p.notes && active.length === 0 && !p.not_observed) return null;
                         return (
                           <li key={p.id} className="border-t pt-2 text-sm" style={{ borderColor: "var(--border)" }}>

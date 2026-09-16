@@ -1,4 +1,4 @@
-import { BEHAVIORS, rampColor, rampInk } from "@/lib/behaviors";
+import { BEHAVIORS, rampColor, rampInk, type Behavior } from "@/lib/behaviors";
 import type { BehaviorDaily, DailyTotal, PeriodBehavior, PeriodTotal } from "@/lib/types";
 
 export function shortDate(iso: string): string {
@@ -33,8 +33,9 @@ const SURFACE = "var(--surface-1)";
 /* ------------------------------------------------------------ total per day */
 
 export function TotalPerDayChart({ data }: { data: DailyTotal[] }) {
-  const W = 760, H = 300;
-  const M = { top: 20, right: 16, bottom: 44, left: 44 };
+  const W = 760, H = 320;
+  // Bottom band holds three stacked rows: date, weekday, and the day's total.
+  const M = { top: 20, right: 16, bottom: 64, left: 44 };
   const plotW = W - M.left - M.right;
   const plotH = H - M.top - M.bottom;
 
@@ -43,14 +44,13 @@ export function TotalPerDayChart({ data }: { data: DailyTotal[] }) {
   const max = niceMax(Math.max(...data.map((d) => d.total), 1));
   const band = plotW / data.length;
   const barW = Math.min(24, band * 0.55);
-  const peak = data.reduce((a, b) => (b.total > a.total ? b : a));
-  const latest = data[data.length - 1];
+  const baseline = M.top + plotH;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img"
       aria-label={`Total incidents per day, ${data.length} days recorded`}>
       {ticks(max).map((t) => {
-        const y = M.top + plotH - (t / max) * plotH;
+        const y = baseline - (t / max) * plotH;
         return (
           <g key={t}>
             <line x1={M.left} x2={W - M.right} y1={y} y2={y} stroke={t === 0 ? AXIS : GRID} strokeWidth={1} />
@@ -64,23 +64,21 @@ export function TotalPerDayChart({ data }: { data: DailyTotal[] }) {
       {data.map((d, i) => {
         const h = (d.total / max) * plotH;
         const x = M.left + i * band + (band - barW) / 2;
-        const y = M.top + plotH - h;
-        const label = d.log_date === peak.log_date || d.log_date === latest.log_date;
+        const cx = x + barW / 2;
         return (
           <g key={d.log_date}>
             <title>{`${weekdayDate(d.log_date)}: ${d.total} incidents`}</title>
-            <rect x={x} y={y} width={barW} height={Math.max(h, 0)} rx={4} fill={BEHAVIORS[0].color} />
-            {h > 4 && <rect x={x} y={M.top + plotH - 4} width={barW} height={4} fill={BEHAVIORS[0].color} />}
-            {label && (
-              <text x={x + barW / 2} y={y - 8} textAnchor="middle" fontSize={13} fontWeight={600} fill={INK} className="tnum">
-                {d.total}
-              </text>
-            )}
-            <text x={x + barW / 2} y={M.top + plotH + 20} textAnchor="middle" fontSize={12} fill={MUTED}>
+            <rect x={x} y={baseline - h} width={barW} height={Math.max(h, 0)} rx={4} fill={BEHAVIORS[0].color} />
+            {h > 4 && <rect x={x} y={baseline - 4} width={barW} height={4} fill={BEHAVIORS[0].color} />}
+            <text x={cx} y={baseline + 20} textAnchor="middle" fontSize={12} fill={MUTED}>
               {shortDate(d.log_date)}
             </text>
-            <text x={x + barW / 2} y={M.top + plotH + 36} textAnchor="middle" fontSize={11} fill={MUTED}>
+            <text x={cx} y={baseline + 34} textAnchor="middle" fontSize={11} fill={MUTED}>
               {d.day_of_week ?? ""}
+            </text>
+            {/* The day's total, printed under its date. */}
+            <text x={cx} y={baseline + 52} textAnchor="middle" fontSize={13} fontWeight={600} fill={INK} className="tnum">
+              {d.total}
             </text>
           </g>
         );
@@ -94,9 +92,11 @@ export function TotalPerDayChart({ data }: { data: DailyTotal[] }) {
 export function StackedByBehaviorChart({
   totals,
   behaviorDaily,
+  behaviors = BEHAVIORS,
 }: {
   totals: DailyTotal[];
   behaviorDaily: BehaviorDaily[];
+  behaviors?: Behavior[];
 }) {
   const W = 760, H = 300;
   const M = { top: 20, right: 16, bottom: 44, left: 44 };
@@ -137,7 +137,7 @@ export function StackedByBehaviorChart({
         let cursor = M.top + plotH;
         return (
           <g key={day.log_date}>
-            {BEHAVIORS.map((b) => {
+            {behaviors.map((b) => {
               const value = counts.get(b.code) ?? 0;
               if (value <= 0) return null;
               const h = (value / max) * plotH;
@@ -167,10 +167,10 @@ export function StackedByBehaviorChart({
   );
 }
 
-export function BehaviorLegend() {
+export function BehaviorLegend({ behaviors = BEHAVIORS }: { behaviors?: Behavior[] }) {
   return (
     <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-      {BEHAVIORS.map((b) => (
+      {behaviors.map((b) => (
         <li key={b.code} className="flex items-center gap-1.5">
           <span
             aria-hidden
@@ -235,9 +235,11 @@ export function BehaviorMiniChart({
 export function PeriodHeatmap({
   periodTotals,
   periodBehavior,
+  behaviors = BEHAVIORS,
 }: {
   periodTotals: PeriodTotal[];
   periodBehavior: PeriodBehavior[];
+  behaviors?: Behavior[];
 }) {
   const lookup = new Map<string, number>();
   for (const row of periodBehavior) {
@@ -256,7 +258,7 @@ export function PeriodHeatmap({
             <th scope="col" className="p-2 text-left text-xs font-medium" style={{ color: MUTED }}>
               Class
             </th>
-            {BEHAVIORS.map((b) => (
+            {behaviors.map((b) => (
               <th
                 key={b.code}
                 scope="col"
@@ -281,7 +283,7 @@ export function PeriodHeatmap({
                   {period.time_range}
                 </span>
               </th>
-              {BEHAVIORS.map((b) => {
+              {behaviors.map((b) => {
                 const value = lookup.get(`${period.period_key}:${b.code}`) ?? 0;
                 return (
                   <td
