@@ -172,6 +172,9 @@ export default function ReviewForm({
           mediaType: image?.mediaType ?? null,
           raw,
           layout,
+          // The reader's untouched answer, so the save can record where a human
+          // disagreed with it. `periods` above is the edited version.
+          model_periods: raw ? initial.periods : null,
           replace,
         }),
       });

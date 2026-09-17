@@ -188,6 +188,49 @@ branch merged into `main` and pushed. Do the following in order:
 
 <!-- newest first; append a new dated entry on every "end session" -->
 
+### 2026-09-16 — claude/beautiful-shannon-46kla5 (training-set capture)
+
+Came out of a question: is there public handwriting data to pre-train on? Short answer,
+no — MNIST/EMNIST teach isolated digit identity, IAM teaches cursive words, and neither
+answers this form's actual questions ("how many glyphs in this run" and "what does
+`lolololo` mean"). The data that would answer them is the data this app already produces
+every time a human confirms a reading, so it is now kept.
+
+**What's collected**
+- `supabase/migrations/0004_harper_training_samples.sql` (applied live): append-only, one
+  row per period per confirmed review — the machine's `raw_tally`, counts and confidence,
+  the human's counts, a `corrected` flag, and the cell's box on the photo. RLS on, no
+  policies, same posture as every other table.
+- **No cropped images are stored.** A crop is fully determined by (photo, row grid,
+  period), all already saved — so crops are cut on demand at any resolution and improve
+  retroactively when a grid is realigned. The box on a sample is frozen at confirm time so
+  a later realignment can't change what an existing label points at.
+- Captured on both paths: `POST /api/logs` compares the reader's untouched periods
+  (`model_periods`, sent by `ReviewForm`) against the saved ones; `PATCH /api/logs/[id]`
+  reads the day before overwriting it and pairs that with the correction. A log typed in
+  by hand records nothing — there was no reading to disagree with.
+- `recordSamples` swallows its own failures on purpose: this is bookkeeping for a
+  maybe-someday model, and a parent saving a school day must never see an error from it.
+
+**Getting it out**
+- `GET /api/training` streams JSON Lines (`?corrected=1` for just the disagreements),
+  behind the same PIN as everything else. Nothing leaves the app otherwise.
+- Settings grew a "Teaching the reader" panel: rows collected, how many were corrections,
+  how many link to a photo, days covered, and the download links.
+
+**Structure**
+- `lib/samples.ts` (new, pure) holds the part that decides what a label means;
+  `lib/training.ts` keeps the database half. The split exists so `npm test` can exercise
+  the labelling on plain node.
+- `tests/samples.test.js`: 26 checks, focused on the `corrected` flag — including the case
+  that matters most, the same total recorded under a different behavior.
+
+**Judgement recorded**
+- This may never be worth training on. If Claude plus `lib/tally.ts` reaches the point
+  where review is a glance, a custom model saves nothing, because human confirmation can't
+  be removed from an IEP record at any model quality. Collecting is free; training is not.
+  Revisit at a few hundred samples — see `fix_list.md`.
+
 ### 2026-09-16 — claude/beautiful-shannon-46kla5 (tappable boxes on the photo)
 
 Same branch, continuing from the counting-accuracy session. One feature: boxes drawn over

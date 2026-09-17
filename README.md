@@ -87,6 +87,28 @@ A day with no photo (the September logs were transcribed before the site existed
 have the paper photographed and attached from that same page — nothing needs deleting
 and re-entering.
 
+## Teaching the reader
+
+Every confirmed log records, per row, what the reader thought the marks said next to what
+a human agreed they were. That pairing is the one thing no public handwriting corpus
+contains: MNIST and IAM teach *which character is this*, and the open questions on this
+form are *how many of them are there* and *what does this teacher's shorthand mean*. Only
+these pages answer those.
+
+It costs nothing to collect and cannot be added later — the photos alone don't record
+where a human disagreed. Whether it is ever worth training on is a decision for when
+there's enough of it to tell; Settings shows the running count and downloads the set as
+JSON Lines.
+
+No cropped images are stored. A crop is fully determined by the photo, the row grid and
+the period, all of which are already saved, so crops are cut on demand at whatever
+resolution a training run wants — and they improve retroactively when a grid is realigned.
+The box recorded on each sample is frozen at confirm time, so a later realignment can't
+silently change what an existing label refers to.
+
+Nothing leaves the app: the samples sit in the same locked-down project as everything else,
+and the export is behind the same PIN.
+
 ## Filtering
 
 Every view is scoped by the same filter row, and the filters live in the URL, so a
@@ -144,6 +166,8 @@ Everything lives in an existing Supabase project, namespaced with a `harper_` pr
 - `harper_log_periods` — one row per class period per day, with `b1`…`b8` counts
 - `harper_settings` — app settings a parent can change without a redeploy; currently the
   PIN, stored as a salted scrypt hash
+- `harper_training_samples` — append-only: one row per period per confirmed review, holding
+  the machine's reading, the human's verdict, and where on the photo the cell sits
 - `harper_v_*` — SQL views over the same data, kept for ad-hoc queries in the Supabase
   dashboard. The app derives its own aggregates in TypeScript so filters apply uniformly;
   `npm test` cross-checks the two agree.

@@ -3,6 +3,7 @@ import { db, PHOTO_BUCKET } from "@/lib/supabase";
 import { PERIOD_KEYS } from "@/lib/behaviors";
 import { normalizeLayout } from "@/lib/geometry";
 import { PARSER_MODEL } from "@/lib/parse";
+import { buildSamples, recordSamples } from "@/lib/training";
 import type { PeriodEntry } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -19,6 +20,8 @@ type SaveBody = {
   raw?: unknown;
   replace?: boolean;
   layout?: unknown;
+  /** The periods exactly as the reader produced them, before any human edit. */
+  model_periods?: PeriodEntry[];
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -134,6 +137,35 @@ export async function POST(request: Request) {
   const { error: periodError } = await supabase.from("harper_log_periods").insert(rows);
   if (periodError) {
     return NextResponse.json({ error: periodError.message }, { status: 500 });
+  }
+
+  // A confirmed review is a labelled example: what the reader said about each
+  // cell, next to what a human agreed it was. Only recorded when there was a
+  // machine reading to compare against — a log typed in by hand teaches nothing.
+  const modelPeriods = Array.isArray(body.model_periods) ? body.model_periods : [];
+  if (modelPeriods.length > 0) {
+    await recordSamples(
+      buildSamples({
+        log_id: saved.id,
+        log_date: logDate,
+        image_path: imagePath,
+        layout: normalizeLayout(body.layout),
+        source: "review",
+        rows: PERIOD_KEYS.flatMap((key) => {
+          const model = modelPeriods.find((m) => m?.period_key === key);
+          const human = incoming.find((entry) => entry?.period_key === key);
+          if (!model || !human) return [];
+          return [{
+            period_key: key,
+            model_raw_tally: model.raw_tally ?? null,
+            model_confidence: model.confidence ?? null,
+            model,
+            human,
+            human_not_observed: Boolean(human.not_observed),
+          }];
+        }),
+      }),
+    );
   }
 
   return NextResponse.json({ ok: true, id: saved.id, log_date: logDate });
