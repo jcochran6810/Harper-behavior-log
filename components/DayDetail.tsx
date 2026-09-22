@@ -2,10 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
-import { BEHAVIORS, BEHAVIOR_KEYS, PERIOD_KEYS, PERIODS, type BehaviorKey } from "@/lib/behaviors";
+import {
+  BEHAVIORS,
+  BEHAVIOR_KEYS,
+  PERIOD_KEYS,
+  PERIODS,
+  SUPPORT_EVENTS,
+  type BehaviorKey,
+  type SupportKey,
+} from "@/lib/behaviors";
 import { fallbackLayout, type Layout } from "@/lib/geometry";
 import { prepareImage } from "@/lib/image";
 import PhotoBoxes from "@/components/PhotoBoxes";
+import SupportCounters from "@/components/SupportCounters";
 import { readTally, sameCounts, zeroCounts } from "@/lib/tally";
 import type { LogWithPeriods } from "@/lib/types";
 
@@ -92,6 +101,11 @@ export default function DayDetail({
 
   const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState<Row[]>(ordered);
+  // The day's own tally box: assistance called, removed from class.
+  const [support, setSupport] = useState<Record<SupportKey, number>>({
+    assistance_count: log.assistance_count ?? 0,
+    removed_count: log.removed_count ?? 0,
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
@@ -110,6 +124,8 @@ export default function DayDetail({
     0,
   );
   const smileys = shown.reduce((sum, p) => sum + (p.smiley_count ?? 0), 0);
+  const assistance = editing ? support.assistance_count : log.assistance_count ?? 0;
+  const removed = editing ? support.removed_count : log.removed_count ?? 0;
 
   const totalsByPeriod = useMemo(
     () =>
@@ -167,6 +183,7 @@ export default function DayDetail({
             smiley_count: p.smiley_count,
             ...Object.fromEntries(BEHAVIOR_KEYS.map((k) => [k, p[k]])),
           })),
+          support,
         }),
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -453,6 +470,16 @@ export default function DayDetail({
             incidents recorded{smileys > 0 ? ` · ${smileys} smileys` : ""}
             {!log.verified_at && " · not yet checked against the paper"}
           </p>
+          {(assistance > 0 || removed > 0) && (
+            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+              {[
+                assistance > 0 ? `assistance called ${assistance}×` : null,
+                removed > 0 ? `removed from class ${removed}×` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
         </div>
         {editing ? (
           <div className="flex gap-2">
@@ -469,6 +496,10 @@ export default function DayDetail({
               type="button"
               onClick={() => {
                 setRows(ordered);
+                setSupport({
+                  assistance_count: log.assistance_count ?? 0,
+                  removed_count: log.removed_count ?? 0,
+                });
                 setEditing(false);
                 setError(null);
               }}
@@ -492,6 +523,47 @@ export default function DayDetail({
           </button>
         )}
       </section>
+
+      {/* ------------------------------------------- the day's own tally box */}
+      {/* Counted once for the day, from the box at the top of the paper form, and
+          never added to the incident total above: these record what the school did
+          in response, so counting them as incidents would report events twice. */}
+      {editing ? (
+        <section className="card p-4">
+          <SupportCounters
+            values={support}
+            onChange={(key, next) => setSupport((prev) => ({ ...prev, [key]: next }))}
+          />
+        </section>
+      ) : (
+        <section className="card p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+            What the school had to do
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            {SUPPORT_EVENTS.map((e) => {
+              const value = e.key === "assistance_count" ? assistance : removed;
+              return (
+                <div key={e.key}>
+                  <p
+                    className="tnum text-2xl font-semibold leading-none"
+                    style={{ color: value > 0 ? "var(--text-primary)" : "var(--text-muted)" }}
+                  >
+                    {value}
+                  </p>
+                  <p className="mt-1 text-xs font-medium">{e.label}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--text-muted)" }}>
+                    {e.hint}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
+            Counted once for the whole day. Not part of the {dayTotal} incidents above.
+          </p>
+        </section>
+      )}
 
       {error && (
         <p className="rounded-lg px-4 py-3 text-sm" style={{ background: "var(--surface-1)", color: "var(--critical)" }}>

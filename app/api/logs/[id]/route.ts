@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { BEHAVIOR_KEYS, PERIOD_KEYS } from "@/lib/behaviors";
+import { BEHAVIOR_KEYS, PERIOD_KEYS, SUPPORT_KEYS } from "@/lib/behaviors";
 import { normalizeLayout } from "@/lib/geometry";
 import { buildSamples, recordSamples } from "@/lib/training";
 import { db, PHOTO_BUCKET } from "@/lib/supabase";
@@ -53,6 +53,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     overall_note?: string | null;
     periods?: PeriodPatch[];
     layout?: unknown;
+    /** Day-level counts: assistance called, removed from class. */
+    support?: Partial<Record<(typeof SUPPORT_KEYS)[number], number>>;
     /** "I have held this day up against the paper and these numbers are right." */
     verified?: boolean;
     verified_note?: string | null;
@@ -161,6 +163,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     patch.date_confirmed = true;
   }
   if (typeof body.date_confirmed === "boolean") patch.date_confirmed = body.date_confirmed;
+  if (body.support && typeof body.support === "object") {
+    for (const sk of SUPPORT_KEYS) {
+      if (body.support[sk] !== undefined) patch[sk] = count(body.support[sk]);
+    }
+  }
   if (typeof body.verified === "boolean") {
     patch.verified_at = body.verified ? new Date().toISOString() : null;
     patch.verified_note = body.verified

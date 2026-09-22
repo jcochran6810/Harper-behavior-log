@@ -11,11 +11,11 @@ import {
   TotalPerDayChart,
   weekdayDate,
 } from "@/components/charts";
-import { BEHAVIORS } from "@/lib/behaviors";
+import { BEHAVIORS, SUPPORT_EVENTS } from "@/lib/behaviors";
 import { buildDataset } from "@/lib/derive";
 import { activeCount, parseFilters, serializeFilters, type SearchParams } from "@/lib/filters";
 import { getLogs } from "@/lib/queries";
-import { pct, summarize } from "@/lib/stats";
+import { pct, perDayOf, summarize } from "@/lib/stats";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,10 @@ export default async function DashboardPage({
 
   const dates = data.dailyTotals.map((d) => d.log_date);
   const unverified = data.dailyTotals.filter((d) => !d.verified);
+  // Only the days something actually happened on, most recent first.
+  const supportDays = [...data.dailyTotals]
+    .filter((d) => d.assistance > 0 || d.removed > 0)
+    .reverse();
   const countsByCode = new Map<number, Map<string, number>>();
   for (const row of data.behaviorDaily) {
     if (!countsByCode.has(row.code)) countsByCode.set(row.code, new Map());
@@ -147,7 +151,85 @@ export default async function DashboardPage({
                   value={pct(s.concentration)}
                   note="of all incidents"
                 />
+                {/* Not behaviors, so these two are never narrowed by the behavior
+                    filter — see Dataset.support. */}
+                <StatTile
+                  label="Assistance called"
+                  value={data.support.assistance}
+                  note={`${perDayOf(data.support.assistance, s.days)} per school day`}
+                />
+                <StatTile
+                  label="Removed from class"
+                  value={data.support.removed}
+                  note={`${perDayOf(data.support.removed, s.days)} per school day`}
+                />
               </section>
+
+              {/* Counted once per day, from the box at the top of the form. Kept out of
+                  the incident figures above: these record what the school did in
+                  response, so counting them as incidents would report events twice. */}
+              {(data.support.assistance > 0 || data.support.removed > 0) && (
+                <section className="card mb-4 p-4">
+                  <h2 className="text-sm font-semibold">What the school had to do</h2>
+                  <p className="mb-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                    Counted once per day, not per class
+                    {activeCount(filters) > 0 ? ", so a class-period filter doesn't narrow these" : ""}
+                    . Not included in the incident totals above.
+                  </p>
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr style={{ color: "var(--text-muted)" }}>
+                        <th scope="col" className="py-1 text-left text-xs font-medium">
+                          Day
+                        </th>
+                        {SUPPORT_EVENTS.map((e) => (
+                          <th
+                            key={e.key}
+                            scope="col"
+                            className="py-1 text-right text-xs font-medium"
+                            title={e.hint}
+                          >
+                            {e.short}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {supportDays.map((d) => (
+                        <tr
+                          key={d.log_date}
+                          className="border-t"
+                          style={{ borderColor: "var(--border)" }}
+                        >
+                          <th scope="row" className="py-1.5 text-left text-xs font-normal">
+                            <Link
+                              href={query ? `/day/${d.log_date}?${query}` : `/day/${d.log_date}`}
+                              className="underline underline-offset-2"
+                            >
+                              {weekdayDate(d.log_date)}
+                            </Link>
+                          </th>
+                          <td className="tnum py-1.5 text-right">{d.assistance || "·"}</td>
+                          <td className="tnum py-1.5 text-right">{d.removed || "·"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t" style={{ borderColor: "var(--border)" }}>
+                        <th scope="row" className="py-1.5 text-left text-xs font-medium">
+                          Across {s.days} recorded {s.days === 1 ? "day" : "days"}
+                        </th>
+                        <td className="tnum py-1.5 text-right font-semibold">
+                          {data.support.assistance}
+                        </td>
+                        <td className="tnum py-1.5 text-right font-semibold">
+                          {data.support.removed}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </section>
+              )}
 
               <section className="card mb-4 p-4">
                 <h2 className="text-sm font-semibold">Total incidents per day</h2>

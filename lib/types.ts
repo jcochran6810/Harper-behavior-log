@@ -28,6 +28,11 @@ export type ParsedLog = {
   layout: Layout;
   /** "estimated" means the grid is an even split and wants aligning by hand. */
   layout_source: "measured" | "estimated";
+  /** Read out of the teacher's prose, once for the day. Always confirmed by a human. */
+  assistance_count: number;
+  removed_count: number;
+  /** Why those two want checking — review-time only, never stored. */
+  support_flags?: string[];
 };
 
 export type DailyTotal = {
@@ -39,6 +44,9 @@ export type DailyTotal = {
   total: number;
   periods_with_incidents: number;
   smileys: number;
+  /** Times another adult was called in, and times she left the room, that day. */
+  assistance: number;
+  removed: number;
 };
 
 export type BehaviorDaily = {
@@ -82,6 +90,14 @@ export type LogWithPeriods = {
    */
   verified_at: string | null;
   verified_note: string | null;
+  /**
+   * Counted once for the whole day, from the box at the top of the form: how many
+   * times another adult was called into the room, and how many times Harper was
+   * taken out of it. Neither is a behavior and neither is ever added to an
+   * incident total. See SUPPORT_EVENTS in lib/behaviors.ts.
+   */
+  assistance_count: number;
+  removed_count: number;
   overall_note: string | null;
   image_path: string | null;
   harper_log_periods: (PeriodEntry & { id: string; total: number })[];

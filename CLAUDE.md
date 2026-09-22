@@ -186,6 +186,79 @@ branch merged into `main` and pushed. Do the following in order:
 
 ## Session log
 
+### 2026-09-22 — claude/nice-allen-bet182 (assistance and removals moved to per day)
+
+Follow-up in the same session: the two counts belong in one box at the top of each day,
+not on every class period.
+
+- `supabase/migrations/0007_harper_support_per_day.sql` (applied live) moves
+  `assistance_count` and `removed_count` onto `harper_daily_logs` and drops them from
+  `harper_log_periods`. No data moved — there is none. 0006 is kept as history with a
+  header pointing here, because the live database ran it and replaying the files must too.
+- Per-period was the wrong model: it would have made someone decide which class a removal
+  "belonged" to, and the paper never says. One box per day matches the form.
+- The reader now reads them once for the whole page, and is told to trust a printed box at
+  the top of the form over its own reading of the notes if one exists. Lower of the two
+  reads still wins, and a non-zero value still lands in front of a human — the flag now
+  sits on the box in `ReviewForm` (`ParsedLog.support_flags`) instead of on a row.
+- One `SupportCounters` box now, at the top of the review screen and on the day page (read
+  as two figures, editable under "Fix these numbers"). `PATCH /api/logs/[id]` takes a
+  `support` object; `POST /api/logs` takes the two at the top level.
+- The filter rule got sharper and is the thing to remember: neither the behavior filter NOR
+  the class-period filter narrows these, because they belong to the day. Only the date
+  window and the day of week do. A class-scoped view says so on screen rather than implying
+  the number is that class's. `tests/support.test.js` rewritten around it (28 checks).
+- Dashboard and report tables are per day now, with a total row; CSV carries them as
+  `day_assistance_called` / `day_removed_from_class`, prefixed so nobody sums a repeated
+  day attribute ten times.
+
+### 2026-09-22 — claude/nice-allen-bet182 (assistance called, removals from class)
+
+Asked for a tracker of two things the eight behaviors can't express: how many times
+assistance was called, and how many times Harper was removed from class.
+
+**Where they live, and why not as behaviors 9 and 10**
+- `supabase/migrations/0006_harper_support_events.sql` (applied live): `assistance_count`
+  and `removed_count` on `harper_log_periods`, per period, defaulting to 0.
+- They are NOT new behavior codes. The numbers 1-8 are the teacher's, printed on the paper,
+  and nothing may be added to them. They are also a different kind of fact: a behavior is
+  what the child did, these are what the school had to do about it — which is the question
+  an ARD committee is actually deciding.
+- They are NOT part of the generated `total`. Every incident figure stays comparable with
+  everything recorded before today, and a removal is never counted as a second incident on
+  top of the behavior that caused it. The report states this in as many words.
+- `SUPPORT_EVENTS` in `lib/behaviors.ts` is the one definition, next to `BEHAVIORS`.
+- No palette slot assigned: the categorical palette's slot order is the colorblind-safety
+  mechanism, so these are neutral ink told apart by fill vs outline.
+
+**The filter rule worth remembering**
+- The behavior filter does NOT narrow them, because they aren't behaviors. "Aggression
+  only" narrowing assistance calls would let a filtered report understate the support the
+  classroom needed. Date, weekday and class-period filters do apply. That asymmetry is the
+  bulk of `tests/support.test.js` (28 checks, own fixture so the real September fixture
+  keeps cross-checking against the view SQL).
+
+**Reading them off the page**
+- Unlike tallies these are written in prose, so `lib/parse.ts` gained a prompt section with
+  a deliberately high bar: an explicit statement in that row's notes. Redirects, reminders
+  and negotiation are not assistance; scheduled pull-outs (therapy, nurse, lunch, specials)
+  and Harper leaving on her own are not removals; ambiguity takes the lower number.
+- Every non-zero value is flagged on the review screen with the teacher's wording beside
+  it, and where two reads disagree the lower stands — same rule the tallies follow.
+- They deliberately survive `not_observed`: a removal from specials is still a removal, and
+  the notes are what recorded it. The flag says so rather than clearing or silently keeping.
+
+**Where they show up**
+- `components/SupportCounters.tsx` (new): the two steppers, used by `ReviewForm` and by
+  `DayDetail`'s editor, plus `SupportChips` for the read-only view.
+- Day page totals, the day-by-day cards in `LogTable`, two dashboard stat tiles and a
+  per-class table, a new report section ("Assistance called, and removals from class") with
+  its own toggle, and two CSV columns placed after `period_total` rather than inside it.
+
+**Not done**
+- Nothing here has met a real photograph. See `fix_list.md` for the three open items,
+  including that the training samples don't yet record corrections to these two counts.
+
 ### 2026-09-22 — claude/nice-allen-bet182 (counting accuracy, second pass; checked-or-not)
 
 Opened on the same complaint as the previous session — "the 9/10 count is too high" — plus

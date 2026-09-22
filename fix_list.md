@@ -8,6 +8,23 @@ Add new items at the top. Use the format:
 
 ## Open
 
+- [ ] 2026-09-22 — The training samples (`harper_training_samples`) are per period and
+      compare tally counts only, so a review where a human changes only the day's
+      assistance or removal count teaches nothing. Harmless today — nothing trains on it
+      yet — but those two are now day-level, so capturing them would mean a day-level
+      sample, not another column.
+- [ ] 2026-09-22 — The `harper_v_*` views don't include the day's `assistance_count` or
+      `removed_count`, so ad-hoc SQL in the Supabase dashboard won't see them. The app
+      derives its own aggregates (`lib/derive.ts`) so nothing in the product is affected;
+      add them to the views if someone starts querying by hand.
+- [ ] 2026-09-22 — Whether the reader can actually tell "called for assistance" from a
+      routine redirect, and a behavioral removal from a scheduled pull-out, is untested
+      against real notes. The prompt is explicit and every non-zero value is flagged for
+      confirmation, so the failure mode is extra review rather than a wrong number — but
+      check the first few photos and tighten the prompt if it over-proposes. If the form
+      turns out to have a printed box for these at the top, the prompt already says to
+      trust that box over its own reading of the notes; confirm that works.
+
 - [ ] 2026-09-22 — **The database is empty — start from photographs.** The five seeded
       September days were deleted at the user's request so the record starts clean. Every
       day from here on arrives through `/upload` as a photograph, which means the first

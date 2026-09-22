@@ -24,6 +24,9 @@ export async function GET(request: Request) {
     "date", "day", "period", "specials_subject", "antecedent",
     ...data.behaviors.map((b) => b.short.toLowerCase().replace(/\s+/g, "_")),
     "period_total", "smileys", "not_observed", "confidence", "raw_tally", "notes",
+    // Day attributes, so they repeat down the day's ten rows exactly as `date`
+    // does. The day_ prefix is the warning not to sum them.
+    "day_assistance_called", "day_removed_from_class",
   ];
 
   const rows = [header.join(",")];
@@ -47,6 +50,8 @@ export async function GET(request: Request) {
           p.confidence,
           p.raw_tally ?? "",
           p.notes ?? "",
+          log.assistance_count ?? 0,
+          log.removed_count ?? 0,
         ]
           .map(cell)
           .join(","),

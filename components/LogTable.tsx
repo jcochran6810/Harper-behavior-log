@@ -118,6 +118,9 @@ export default function LogTable({
               (a, b) => PERIOD_KEYS.indexOf(a.period_key) - PERIOD_KEYS.indexOf(b.period_key),
             );
             const total = periods.reduce((sum, p) => sum + p.total, 0);
+            // Day-level, and not incidents, so shown on their own line.
+            const assistance = log.assistance_count ?? 0;
+            const removed = log.removed_count ?? 0;
             const busiest = periods
               .filter((p) => p.total > 0)
               .sort((a, b) => b.total - a.total)
@@ -148,6 +151,16 @@ export default function LogTable({
                       ? busiest.map((p) => `${periodLabel(p.period_key)} ${p.total}`).join(" · ")
                       : "no incidents recorded"}
                   </span>
+                  {(assistance > 0 || removed > 0) && (
+                    <span className="mt-1 block text-xs" style={{ color: "var(--text-secondary)" }}>
+                      {[
+                        assistance > 0 ? `assistance called ${assistance}×` : null,
+                        removed > 0 ? `removed from class ${removed}×` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  )}
                   {!log.verified_at && (
                     <span className="mt-1 block text-xs" style={{ color: "var(--warning)" }}>
                       Not yet checked against the paper

@@ -23,6 +23,18 @@ export type Dataset = {
   /** Totals before filtering, so the UI can say "12 of 40 days". */
   allDays: number;
   allIncidents: number;
+  /**
+   * Times another adult was called in, and times Harper left the room, across
+   * this slice.
+   *
+   * Recorded once per DAY, so only the filters that pick days can narrow them:
+   * the date range and the day of week. The behavior filter cannot ("aggression
+   * only" must not make it look as though assistance was called less often), and
+   * neither can the class-period filter, because the form never says which class
+   * a removal happened in. A view scoped to one class therefore still reports the
+   * whole day's figure, and the UI says so rather than implying otherwise.
+   */
+  support: { assistance: number; removed: number };
 };
 
 function countIn(period: PeriodEntry, codes: BehaviorCode[]): number {
@@ -82,6 +94,9 @@ export function buildDataset(all: LogWithPeriods[], filters: Filters): Dataset {
     total: log.harper_log_periods.reduce((sum, p) => sum + p.total, 0),
     periods_with_incidents: log.harper_log_periods.filter((p) => p.total > 0).length,
     smileys: log.harper_log_periods.reduce((sum, p) => sum + p.smiley_count, 0),
+    // Day-level, so untouched by the behavior and class-period filters alike.
+    assistance: log.assistance_count ?? 0,
+    removed: log.removed_count ?? 0,
   }));
 
   const behaviorDaily: BehaviorDaily[] = [];
@@ -143,5 +158,9 @@ export function buildDataset(all: LogWithPeriods[], filters: Filters): Dataset {
     periods,
     allDays: all.length,
     allIncidents,
+    support: {
+      assistance: dailyTotals.reduce((sum, d) => sum + d.assistance, 0),
+      removed: dailyTotals.reduce((sum, d) => sum + d.removed, 0),
+    },
   };
 }

@@ -60,3 +60,11 @@ export function summarize(
 export function pct(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
+
+/**
+ * A per-school-day rate. The denominator is always the number of RECORDED days,
+ * never the number of days the thing happened on, so a rate can't flatter itself.
+ */
+export function perDayOf(total: number, days: number): string {
+  return days > 0 ? (total / days).toFixed(1) : "0";
+}

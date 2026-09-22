@@ -93,6 +93,38 @@ OTHER MARKS
   - The Specials row is sometimes labeled with the actual subject (Library, PE, Music, Art).
     Put that in specials_subject.
 
+TWO COUNTS FOR THE WHOLE DAY, READ OUT OF THE NOTES
+Two numbers are counted ONCE FOR THE ENTIRE PAGE, not per row. They may be written in a
+box at the top of the form; if they are, read them there and trust that box over your own
+reading of the notes. If there is no such box, count the separate occasions described
+anywhere in the day's notes, adding them up across all ten rows.
+
+These are the only numbers you may take from prose, and the bar is high: an EXPLICIT
+statement that it happened.
+  - assistance_count — how many times ANOTHER ADULT WAS CALLED INTO THE ROOM across the
+    day. "Called for assistance", "I had to call for support", "admin came down", "the
+    support teacher came in", "had to get help". Count occasions, not the number of adults.
+  - removed_count — how many times HARPER WAS TAKEN OUT OF THE CLASSROOM across the day.
+    "Taken to the office", "walked to the calm room", "sent home", "removed from class",
+    "had to leave the room".
+
+What does NOT count:
+  - A scheduled or routine departure is not a removal: "was pulled for therapy", "went to
+    the nurse", "walked to lunch", "went to specials", "left early" for a known reason,
+    a normal restroom trip. Only count leaving the room as a CONSEQUENCE of behavior.
+  - One episode is one event. A sentence describing a single incident in two rows, or a
+    removal and the return from it, is still one removal.
+  - Harper leaving on her own — "ran out of the room", "walked out" — is not a removal.
+    It may well be behavior 6 or similar, but nobody removed her.
+  - A teacher describing an ordinary redirect, prompt, reminder or negotiation is not
+    assistance being called. "3 redirects", "needed reminders", "we talked" are the
+    classroom teacher doing her own job, not a second adult arriving.
+  - Another adult who was already in the room, or is always in the room, was not called.
+  - If the notes are ambiguous about whether it happened, or about how many times, use
+    the LOWER number and set confidence to "medium". These figures go into an argument
+    about staffing, and an inflated one discredits the whole record.
+  - Both are 0 on most days. Zero is the normal answer.
+
 RULES
   - Return all ten periods, in schedule order, even when a row is blank.
   - raw_tally is null when the cell contains no tally glyphs at all.
@@ -194,6 +226,16 @@ function buildTool(strict: boolean): Anthropic.Tool {
         // minItems, and the API rejects the whole request otherwise. The count is
         // stated in the description, and any row the model skips is filled in as
         // an empty, flagged period below.
+        assistance_count: {
+          type: "integer",
+          description:
+            "For the WHOLE DAY: times another adult was called into the room. From the box at the top of the form if there is one, otherwise counted across all the notes. 0 if not described.",
+        },
+        removed_count: {
+          type: "integer",
+          description:
+            "For the WHOLE DAY: times Harper was taken out of the classroom as a consequence of behavior. Scheduled pull-outs, lunch, specials and her leaving on her own do not count. 0 if not described.",
+        },
         table_left: {
           type: "number",
           description: "Fraction of image width (0-1) of the table's left ruled edge.",
@@ -210,6 +252,7 @@ function buildTool(strict: boolean): Anthropic.Tool {
       },
       required: [
         "date_month", "date_day", "day_of_week", "overall_note",
+        "assistance_count", "removed_count",
         "table_left", "table_right", "periods",
       ],
     } as unknown as Anthropic.Tool.InputSchema,
@@ -235,6 +278,8 @@ type RawLog = {
   date_day: number | null;
   day_of_week: string | null;
   overall_note: string | null;
+  assistance_count: number;
+  removed_count: number;
   table_left: number;
   table_right: number;
   periods: RawPeriod[];
@@ -558,6 +603,30 @@ export async function parseLogImage(
 
   const { layout, measured } = settleLayout(reads);
 
+  // The two day-level counts settle the same way the tallies do: where the reads
+  // disagree, keep the lower. Reading "called for assistance" out of a sentence is
+  // a judgement rather than a measurement, so it errs downwards too — and because
+  // it came from prose, any non-zero value is always put in front of a human.
+  const assistance = reads.reduce((lowest, r) => Math.min(lowest, clampCount(r.assistance_count)), 99);
+  const removed = reads.reduce((lowest, r) => Math.min(lowest, clampCount(r.removed_count)), 99);
+
+  const supportFlags: string[] = [];
+  if (assistance > 0 || removed > 0) {
+    const parts: string[] = [];
+    if (assistance > 0) parts.push(`assistance called ${assistance}×`);
+    if (removed > 0) parts.push(`removed from class ${removed}×`);
+    supportFlags.push(
+      `Read out of the teacher's words, not off the tally marks: ${parts.join(" and ")}. ` +
+        `Check it against the page before saving.`,
+    );
+  }
+  if (reads.length > 1) {
+    const spread = reads.map((r) => clampCount(r.assistance_count) + clampCount(r.removed_count));
+    if (Math.min(...spread) !== Math.max(...spread)) {
+      supportFlags.push("The two readings of the page disagreed about these — kept the lower.");
+    }
+  }
+
   return {
     parsed: {
       log_date: resolveDate(primary.date_month, primary.date_day),
@@ -566,6 +635,9 @@ export async function parseLogImage(
       periods,
       layout,
       layout_source: measured ? "measured" : "estimated",
+      assistance_count: assistance,
+      removed_count: removed,
+      support_flags: supportFlags,
     },
     raw: { passes: reads.length, reads },
   };
