@@ -42,10 +42,10 @@ Add new items at the top. Use the format:
       rows cascaded; no photos or training samples existed). The app now starts empty, at
       the user's request. `supabase/seed_september.sql` keeps the transcriptions.
 
-- [x] 2026-09-22 — Deployment is live: the Vercel project `harper-behavior-log` exists and
-      production tracks `main` (verified this session — latest production deployment was
-      commit `0deb1a6`). Attaching `hc.stationinsight.com` is still outstanding if a custom
-      domain is wanted.
+- [x] 2026-09-22 — Deployment is fully live and nothing about it is manual any more: the
+      Vercel project `harper-behavior-log` exists, production tracks `main`, and
+      `hc.stationinsight.com` is already aliased to the production deployment (confirmed
+      against the deployment that shipped this session's merge).
 - [x] 2026-09-22 — Reading accuracy: every row that carries a number is now read a second
       time from a close-up crop cut out of the full-resolution photo in the browser
       (`lib/image.ts` `cropRow`, `lib/rowread.ts`, `app/api/parse/rows/route.ts`). The

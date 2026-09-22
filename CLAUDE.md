@@ -235,8 +235,9 @@ never show one, and the reader still counts from a single whole-page image.
   review screen, on correction, or on that button.
 
 **Also**
-- Confirmed the Vercel project exists and production tracks `main`; the fix_list item saying
-  deployment was still manual is closed.
+- Closed the long-standing "deployment is manual" item. The Vercel project exists,
+  production tracks `main`, and `hc.stationinsight.com` is aliased to it — all confirmed
+  against the deployment that shipped this merge, not assumed.
 
 **Then: cleared the database**
 - Asked mid-session to delete the five uploaded days and start fresh. Done on the live
