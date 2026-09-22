@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsc lib/derive.ts lib/filters.ts lib/behaviors.ts lib/tally.ts lib/geometry.ts lib/samples.ts --module commonjs --target es2022 --moduleResolution node --outDir .test-build --skipLibCheck && node tests/derive.test.js && node tests/tally.test.js && node tests/geometry.test.js && node tests/samples.test.js"
+    "test": "tsc lib/derive.ts lib/filters.ts lib/behaviors.ts lib/tally.ts lib/geometry.ts lib/samples.ts lib/reconcile.ts --module commonjs --target es2022 --moduleResolution node --outDir .test-build --skipLibCheck && node tests/derive.test.js && node tests/tally.test.js && node tests/geometry.test.js && node tests/samples.test.js && node tests/reconcile.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

@@ -78,6 +78,15 @@ export default function LogTable({
                         ⚠
                       </span>
                     )}
+                    {!log.verified_at && (
+                      <span
+                        className="ml-1 text-xs"
+                        style={{ color: "var(--warning)" }}
+                        title="These numbers have not been checked against the original page"
+                      >
+                        ?
+                      </span>
+                    )}
                   </th>
                   {cells.map((value, i) => (
                     <td
@@ -134,11 +143,16 @@ export default function LogTable({
                     )}
                   </span>
                   <span className="mt-0.5 block truncate text-xs" style={{ color: "var(--text-muted)" }}>
-                    {log.image_path ? "📄 photo saved · " : ""}
+                    {log.image_path ? "📄 photo saved · " : "no photo of the page · "}
                     {busiest.length > 0
                       ? busiest.map((p) => `${periodLabel(p.period_key)} ${p.total}`).join(" · ")
                       : "no incidents recorded"}
                   </span>
+                  {!log.verified_at && (
+                    <span className="mt-1 block text-xs" style={{ color: "var(--warning)" }}>
+                      Not yet checked against the paper
+                    </span>
+                  )}
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   <span className="tnum text-sm" style={{ color: "var(--text-muted)" }}>

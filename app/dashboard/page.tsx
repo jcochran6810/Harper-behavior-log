@@ -30,6 +30,7 @@ export default async function DashboardPage({
   const query = serializeFilters(filters);
 
   const dates = data.dailyTotals.map((d) => d.log_date);
+  const unverified = data.dailyTotals.filter((d) => !d.verified);
   const countsByCode = new Map<number, Map<string, number>>();
   for (const row of data.behaviorDaily) {
     if (!countsByCode.has(row.code)) countsByCode.set(row.code, new Map());
@@ -92,6 +93,38 @@ export default async function DashboardPage({
                   {s.perDay} per school day across {s.days} {s.days === 1 ? "day" : "days"}
                 </p>
               </section>
+
+              {/* An unchecked number and a checked one look identical on a chart.
+                  Say which is which, and link straight to the days that need it. */}
+              {unverified.length > 0 && (
+                <section
+                  className="card mb-4 p-4"
+                  style={{ borderColor: "var(--warning)", borderWidth: 2 }}
+                >
+                  <p className="text-sm font-semibold">
+                    {unverified.length === 1
+                      ? "One day here has never been checked against the paper"
+                      : `${unverified.length} of these ${s.days} days have never been checked against the paper`}
+                  </p>
+                  <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                    Their numbers are transcriptions. Open a day to see the marks they were
+                    counted from, photograph the page if you still have it, and correct anything
+                    that&apos;s off.
+                  </p>
+                  <p className="mt-2 flex flex-wrap gap-2">
+                    {unverified.map((d) => (
+                      <Link
+                        key={d.log_date}
+                        href={query ? `/day/${d.log_date}?${query}` : `/day/${d.log_date}`}
+                        className="rounded-full border px-3 py-1 text-xs"
+                        style={{ borderColor: "var(--border)" }}
+                      >
+                        {weekdayDate(d.log_date)} · {d.total}
+                      </Link>
+                    ))}
+                  </p>
+                </section>
+              )}
 
               <section className="mb-6 grid grid-cols-2 gap-3">
                 <StatTile

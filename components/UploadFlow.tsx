@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import ReviewForm, { emptyParsedLog } from "@/components/ReviewForm";
 import { BEHAVIORS } from "@/lib/behaviors";
-import { prepareImage, type PreparedImage } from "@/lib/image";
-import type { ParsedLog } from "@/lib/types";
+import { bandFor } from "@/lib/geometry";
+import { cropRow, prepareImage, releaseDetail, type PreparedImage } from "@/lib/image";
+import { countsFromRow, rowsWorthZooming, type PageRow } from "@/lib/reconcile";
+import type { ParsedLog, PeriodEntry } from "@/lib/types";
 
 type Stage = "idle" | "working" | "review" | "done";
 
@@ -20,6 +22,82 @@ export default function UploadFlow() {
   const [parsed, setParsed] = useState<ParsedLog | null>(null);
   const [raw, setRaw] = useState<unknown>(null);
   const [savedDate, setSavedDate] = useState<string | null>(null);
+
+  /**
+   * Re-read every row that carries a number, from a crop of that row.
+   *
+   * Skipped when the row grid wasn't measured from the page — cropping from a
+   * guessed grid would hand the reader the wrong strip of paper, which is worse
+   * than not checking at all. A failure here never blocks the review: the
+   * whole-page reading stands and the rows say they went unchecked.
+   */
+  async function checkRowsCloseUp(
+    parsedLog: ParsedLog,
+    prepared: PreparedImage,
+  ): Promise<{ parsed: ParsedLog; zooms: unknown }> {
+    if (!prepared.detail || parsedLog.layout_source !== "measured") return { parsed: parsedLog, zooms: null };
+
+    const pageRows: PageRow[] = parsedLog.periods.map((p) => ({
+      period_key: p.period_key,
+      raw_tally: p.raw_tally,
+      not_observed: p.not_observed,
+      confidence: p.confidence,
+      counts: countsFromRow(p as unknown as Record<string, number>),
+    }));
+
+    const wanted = rowsWorthZooming(pageRows);
+    if (wanted.length === 0) return { parsed: parsedLog, zooms: null };
+
+    const crops: { period_key: string; image: string; mediaType: string }[] = [];
+    for (const key of wanted) {
+      const band = bandFor(parsedLog.layout, key);
+      if (!band) continue;
+      const crop = cropRow(prepared.detail, band, parsedLog.layout.left, parsedLog.layout.right);
+      if (crop) crops.push({ period_key: key, ...crop });
+    }
+    if (crops.length === 0) return { parsed: parsedLog, zooms: null };
+
+    setStatus(
+      crops.length === 1
+        ? "Checking that row close up…"
+        : `Checking each of the ${crops.length} rows with marks close up…`,
+    );
+
+    try {
+      const res = await fetch("/api/parse/rows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crops, periods: parsedLog.periods }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        periods?: PeriodEntry[];
+        zooms?: unknown;
+        error?: string;
+      };
+      if (!res.ok || !Array.isArray(body.periods)) throw new Error(body.error ?? "close-up failed");
+      return { parsed: { ...parsedLog, periods: body.periods }, zooms: body.zooms ?? null };
+    } catch {
+      // The reading the parent is waiting for is already in hand. Say that the
+      // extra check didn't happen and let them review.
+      return {
+        parsed: {
+          ...parsedLog,
+          periods: parsedLog.periods.map((p) =>
+            wanted.includes(p.period_key)
+              ? {
+                  ...p,
+                  flags: [
+                    ...(p.flags ?? []),
+                    "The close-up check of this row didn't run, so only the whole-page reading counted.",
+                  ],
+                }
+              : p,
+          ),
+        },
+        zooms: null,
+      };
+    }
+  }
 
   async function handleFile(file: File) {
     setError(null);
@@ -47,8 +125,14 @@ export default function UploadFlow() {
         throw new Error(body.error ?? "Couldn't read that photo.");
       }
 
-      setParsed(body.parsed);
-      setRaw(body.raw ?? null);
+      // Second stage: read each row again from a close-up crop cut out of the
+      // full-resolution photo. The whole-page read has to find ten rows and
+      // count every glyph in all of them at once, which is where a run of
+      // seven becomes eight; one row on its own is a much easier question.
+      const checked = await checkRowsCloseUp(body.parsed, prepared);
+
+      setParsed(checked.parsed);
+      setRaw({ page: body.raw ?? null, close_up: checked.zooms });
       setStage("review");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -65,7 +149,10 @@ export default function UploadFlow() {
   }
 
   function reset() {
-    if (image) URL.revokeObjectURL(image.previewUrl);
+    if (image) {
+      URL.revokeObjectURL(image.previewUrl);
+      releaseDetail(image.detail);
+    }
     setImage(null);
     setParsed(null);
     setRaw(null);

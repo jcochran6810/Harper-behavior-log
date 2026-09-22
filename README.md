@@ -14,34 +14,82 @@ printable summary for the ARD meeting.
    how many of each numbered behavior, the teacher's notes, smiley faces, and whether the
    teacher could observe that period at all. It also transcribes the raw tally marks
    verbatim so a human can check its arithmetic.
-4. **Review** — nothing is written to the database until you confirm. Rows the model was
+4. **Read again, row by row** — each row that carries a number is cropped out of the
+   full-resolution photo and read on its own, so counting the marks isn't competing with
+   finding the rows. A close-up may lower a count, never raise one.
+5. **Review** — nothing is written to the database until you confirm. Rows the model was
    unsure about are outlined in amber. The date is required; the form's date box is often
    blank, so it defaults to today and asks you to set it.
-5. **Charts, table, report** — rendered server-side. One query pulls every log; all
+6. **Charts, table, report** — rendered server-side. One query pulls every log; all
    aggregation happens in `lib/derive.ts`, which is what lets a single filter set scope
    the charts, the table, the report and the CSV identically.
 
 ## How the counting is kept honest
 
 Reading handwritten tallies is the one place this app can quietly be wrong, and a
-number that's too high is worse than useless in an IEP meeting. Four things guard it:
+number that's too high is worse than useless in an IEP meeting. Five things guard it:
 
 1. **The model transcribes; the code counts.** The vision model writes down the glyphs
    it can see in each cell (`raw_tally`, e.g. `1111 66666`). `lib/tally.ts` counts those
    characters in plain TypeScript. Where the model's own arithmetic disagrees with its
    transcription, the transcription wins and the row is flagged — the transcription is
    the part a person can check against the photo.
-2. **Two independent reads.** Each photo is read twice. Cells where both reads agree
-   pass through; cells where they disagree keep the **lower** count and are flagged for
-   a human. Set `PARSER_PASSES=1` to fall back to a single read.
-3. **Contradiction checks.** A period marked "the teacher couldn't observe this" cannot
+2. **Two independent reads of the page.** Each photo is read twice. Cells where both
+   reads agree pass through; cells where they disagree keep the **lower** count and are
+   flagged for a human. Set `PARSER_PASSES=1` to fall back to a single read.
+3. **Then every row again, close up.** See below — this is the pass that catches a run
+   of seven read as eight.
+4. **Contradiction checks.** A period marked "the teacher couldn't observe this" cannot
    also carry counts; counts with no marks transcribed probably came from the prose
    notes rather than the page. Both are flagged rather than silently saved.
-4. **A human confirms every number**, with the reason each flagged row was flagged
+5. **A human confirms every number**, with the reason each flagged row was flagged
    printed next to it, before anything is written.
 
 The prompt is explicit that padding a run is a serious error and that a cell full of
 notes with no tally marks is correctly read as zero.
+
+### Reading each row close up
+
+A whole page shrunk to 1568px on its long edge puts one row of the ten-row table at
+about a hundred pixels tall. That is not enough to tell seven marks from eight, and it
+is the same read that also has to find the rows and make sense of the notes. So once
+the page has been read, every row that carries a number is read **again on its own**,
+cropped out of the full-resolution photo in the browser and sent back as a single
+question: how many glyphs are in this one cell?
+
+Splitting the work that way is the point — nothing in the second pass has to decide
+which row it is looking at. Two rules stop it becoming a new way to be wrong:
+
+- **A close-up may lower a count or confirm it. It may never raise one.** A crop can
+  catch the edge of the row above or below, so "the close-up saw more marks" is at
+  least as likely to be a cropping error as a missed mark. When it reads higher, the
+  lower number stands and the row is flagged.
+- **Counts and marks always come from the same reading.** Whichever reading wins brings
+  its transcription with it, so the stored numbers never stop matching the stored
+  marks — that invariant is what lets a person check a number against the photo.
+
+An empty close-up over a row the page said had marks is treated as a bad crop, not as
+proof the marks aren't there: the page reading stands and the row is flagged. The pass
+is skipped entirely when the row grid wasn't measured from the page, because cropping
+from a guessed grid would hand the reader the wrong strip of paper. Anything that goes
+wrong here costs that row its second look and nothing else — the reading the parent is
+waiting for is already in hand. Covered by `tests/reconcile.test.js`.
+
+## Checked against the paper, or not
+
+Every number in this app starts as a transcription. Until someone holds a day up
+against the original page, it is a claim about that page rather than a record of it —
+and a summary that cannot tell those two apart is weaker evidence than one that can.
+
+So `harper_daily_logs.verified_at` records when a human last confirmed a day, and the
+app says so everywhere: a badge on the table, a banner on the day page, a panel on the
+dashboard linking straight to the days that need checking, and a line in the printed
+report stating how many of the days it covers have been checked. A day is verified when
+it is saved from the review screen, when its numbers are corrected, or when someone
+presses **I've checked these against the paper** on its page.
+
+The five September logs were transcribed from photographs that were never kept, so they
+start unverified — which is the truth about them.
 
 ## Tappable boxes on the photo
 
@@ -161,8 +209,9 @@ stroke (`||||`) and cursive-loop styles the teacher also uses.
 Everything lives in an existing Supabase project, namespaced with a `harper_` prefix:
 
 - `harper_behaviors`, `harper_periods` — lookups
-- `harper_daily_logs` — one row per school day (plus the raw model output, for audit, and
-  `row_geometry`: where each form row sits on the photo, as image fractions)
+- `harper_daily_logs` — one row per school day (plus the raw model output, for audit,
+  `row_geometry`: where each form row sits on the photo, as image fractions, and
+  `verified_at`: when a human last checked the day against the original page)
 - `harper_log_periods` — one row per class period per day, with `b1`…`b8` counts
 - `harper_settings` — app settings a parent can change without a redeploy; currently the
   PIN, stored as a salted scrypt hash
@@ -184,7 +233,8 @@ Schema: `supabase/migrations/`. Seed data from the first five logs:
 See `.env.example`. Four are required: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 `APP_PIN`, `SESSION_SECRET`. `ANTHROPIC_API_KEY` is needed only for reading photos —
 without it, everything else works and logs can be entered by hand.
-`PARSER_PASSES` is optional (default 2) — how many independent reads to take of each photo.
+`PARSER_PASSES` is optional (default 2) — how many independent whole-page reads to take
+of each photo. The per-row close-up pass runs on top of that and is not configurable.
 
 ## Changing the PIN
 

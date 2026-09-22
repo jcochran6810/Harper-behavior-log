@@ -78,6 +78,7 @@ export function buildDataset(all: LogWithPeriods[], filters: Filters): Dataset {
     log_date: log.log_date,
     day_of_week: log.day_of_week ?? weekdayOf(log.log_date),
     date_confirmed: log.date_confirmed,
+    verified: Boolean(log.verified_at),
     total: log.harper_log_periods.reduce((sum, p) => sum + p.total, 0),
     periods_with_incidents: log.harper_log_periods.filter((p) => p.total > 0).length,
     smileys: log.harper_log_periods.reduce((sum, p) => sum + p.smiley_count, 0),

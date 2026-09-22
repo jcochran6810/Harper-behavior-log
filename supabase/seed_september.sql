@@ -62,7 +62,9 @@ from (values
  ('lunch',null,null,'Walked to lunch. Not present at lunch to see all behaviors.',null,1,true,'high',0,0,0,0,0,0,0,0),
  ('recess',null,null,'Indoor recess.',null,1,false,'high',0,0,0,0,0,0,0,0),
  ('math',null,null,'Completed math task with 3 redirects.','11111111 6666',1,false,'high',8,0,0,0,0,4,0,0),
- ('specials','PE',null,'Not present at specials to see all behaviors.','1111 666666',1,true,'high',4,0,0,0,0,6,0,0),
+ -- Marked "couldn't observe" AND carrying 10 marks: the two can't both be true,
+ -- so the counts stay at zero and the marks are kept as evidence to re-check.
+ ('specials','PE',null,'Not present at specials to see all behaviors. [Not counted: this row is marked "couldn''t observe this period", so the tally marks transcribed here were not added to the day. Check the page and re-count this row if the marks belong here.]','1111 666666',1,true,'low',0,0,0,0,0,0,0,0),
  ('math_continued',null,null,'Blocked & targeted a student around the room. Hissed at 2 students.','1111111 666666',0,false,'high',7,0,0,0,0,6,0,0),
  ('science',null,null,'Was pulled for therapy.',null,0,true,'high',0,0,0,0,0,0,0,0),
  ('social_studies',null,null,'Packed & participated.',null,1,false,'high',0,0,0,0,0,0,0,0)
