@@ -95,6 +95,14 @@ export async function POST(request: Request) {
     row_geometry: (normalizeLayout(body.layout) ?? null) as never,
     raw_parse: (body.raw ?? null) as never,
     parsed_by: body.raw ? PARSER_MODEL : "manual",
+    // Nothing reaches this route until a human has read every number on the
+    // review screen with the page in front of them, so a saved day is a checked
+    // day. The five September logs, transcribed before the app existed, are the
+    // only ones that stay unverified — which is exactly the truth about them.
+    verified_at: new Date().toISOString(),
+    verified_note: body.raw
+      ? "Confirmed row by row on the review screen."
+      : "Entered by hand from the paper log.",
     updated_at: new Date().toISOString(),
   };
 

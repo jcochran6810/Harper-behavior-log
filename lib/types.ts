@@ -34,6 +34,8 @@ export type DailyTotal = {
   log_date: string;
   day_of_week: string | null;
   date_confirmed: boolean;
+  /** Has a human checked this day's numbers against the original page? */
+  verified: boolean;
   total: number;
   periods_with_incidents: number;
   smileys: number;
@@ -73,6 +75,13 @@ export type LogWithPeriods = {
   log_date: string;
   day_of_week: string | null;
   date_confirmed: boolean;
+  /**
+   * When a human last confirmed this day against the paper. Null means the
+   * numbers are still only a transcription — true of every day seeded before
+   * the app existed, and the distinction an IEP packet needs to be able to make.
+   */
+  verified_at: string | null;
+  verified_note: string | null;
   overall_note: string | null;
   image_path: string | null;
   harper_log_periods: (PeriodEntry & { id: string; total: number })[];

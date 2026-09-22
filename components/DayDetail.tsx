@@ -227,6 +227,34 @@ export default function DayDetail({
     }
   }
 
+  /**
+   * "I have held this day up against the paper and these numbers are right."
+   *
+   * Worth its own button, separate from correcting: most days will be right, and
+   * a day that is right but unchecked is not the same as a day that is checked.
+   * A report that can tell those apart is stronger evidence than one that can't.
+   */
+  async function markVerified() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/logs/${log.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verified: true }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Couldn't record that check.");
+      }
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't record that check.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function fixDate(value: string) {
     setSaving(true);
     setError(null);
@@ -267,6 +295,43 @@ export default function DayDetail({
             className="mt-2 rounded-lg border px-3 py-2"
             style={{ borderColor: "var(--border)", background: "transparent", color: "var(--text-primary)" }}
           />
+        </section>
+      )}
+
+      {/* --------------------------------------- has anyone checked these numbers? */}
+      {log.verified_at ? (
+        <p className="px-1 text-xs" style={{ color: "var(--text-muted)" }}>
+          ✓ Checked against the original page on{" "}
+          {new Date(log.verified_at).toLocaleDateString("en-US", {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          })}
+          {log.verified_note ? ` — ${log.verified_note}` : ""}
+        </p>
+      ) : (
+        <section
+          className="card p-4"
+          style={{ borderColor: "var(--warning)", borderWidth: 2 }}
+        >
+          <p className="text-sm font-semibold">These numbers have never been checked against the paper</p>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            {photoUrl
+              ? "They came from a transcription, not from someone reading this page. Compare them with the photo above, then say so here."
+              : "They were transcribed before this app existed, and no photo of the page was kept — so nothing can be checked against anything. If you still have the paper, photograph it below."}
+          </p>
+          <button
+            type="button"
+            onClick={() => void markVerified()}
+            disabled={saving}
+            className="mt-3 w-full rounded-full border py-2.5 text-sm font-medium disabled:opacity-50"
+            style={{ borderColor: "var(--border)" }}
+          >
+            {saving ? "Saving…" : "✓ I've checked these against the paper — they're right"}
+          </button>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+            Correcting a number with “Fix these numbers” counts as checking the day too.
+          </p>
         </section>
       )}
 
@@ -386,6 +451,7 @@ export default function DayDetail({
           <p className="tnum text-3xl font-semibold">{dayTotal}</p>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             incidents recorded{smileys > 0 ? ` · ${smileys} smileys` : ""}
+            {!log.verified_at && " · not yet checked against the paper"}
           </p>
         </div>
         {editing ? (

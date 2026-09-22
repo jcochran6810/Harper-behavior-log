@@ -53,6 +53,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     overall_note?: string | null;
     periods?: PeriodPatch[];
     layout?: unknown;
+    /** "I have held this day up against the paper and these numbers are right." */
+    verified?: boolean;
+    verified_note?: string | null;
   };
   try {
     body = await request.json();
@@ -100,9 +103,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Correcting a day's numbers IS checking them against the page — that is the
+    // only way anyone arrives at a correction. So the day stops being an
+    // unverified transcription at the same moment.
     const { error: stampError } = await supabase
       .from("harper_daily_logs")
-      .update({ updated_at: new Date().toISOString() })
+      .update({
+        updated_at: new Date().toISOString(),
+        verified_at: new Date().toISOString(),
+        verified_note: "Numbers checked against the page and corrected here.",
+      })
       .eq("id", id);
     if (stampError) return NextResponse.json({ error: stampError.message }, { status: 500 });
 
@@ -151,6 +161,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     patch.date_confirmed = true;
   }
   if (typeof body.date_confirmed === "boolean") patch.date_confirmed = body.date_confirmed;
+  if (typeof body.verified === "boolean") {
+    patch.verified_at = body.verified ? new Date().toISOString() : null;
+    patch.verified_note = body.verified
+      ? text(body.verified_note, 400) ?? "Checked against the original page; no corrections needed."
+      : null;
+  }
 
   const { error } = await db().from("harper_daily_logs").update(patch).eq("id", id);
   if (error) {

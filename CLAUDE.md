@@ -186,6 +186,74 @@ branch merged into `main` and pushed. Do the following in order:
 
 ## Session log
 
+### 2026-09-22 — claude/nice-allen-bet182 (counting accuracy, second pass; checked-or-not)
+
+Opened on the same complaint as the previous session — "the 9/10 count is too high" — plus
+"there needs to be a way to click on the day and see the details and the photo". The day
+pages already existed and production was already running them, so the honest read of *try
+again* was: the number itself was never fixed, no day has a photo, so clicking a day can
+never show one, and the reader still counts from a single whole-page image.
+
+**The 9/10 number, fixed**
+- Its Specials row carried `not_observed = true` AND 10 tally marks. The two cannot both be
+  true, and the app has refused that combination at review time since the counting rewrite
+  — this row predates the rule. Counts cleared, `raw_tally` deliberately kept, day corrected
+  **66 → 56**, live and in `seed_september.sql`. `supabase/migrations/0005` carries the same
+  fix so a fresh database lands in the same place.
+- The counts were cleared rather than the flag because an IEP record must never overstate: a
+  period nobody could watch cannot supply evidence of behavior. Keeping the marks means one
+  tap on "use the count from the marks" puts them back if the paper says otherwise.
+- The remaining 9/10 runs (`11111111`, `6666666`) were left alone. Guessing at them is
+  exactly the error being fixed. They need the page — see `fix_list.md`.
+
+**Reading each row close up — the session's main piece**
+- The real cause of a miscount: a page shrunk to 1568px puts a row of the ten-row table at
+  about 116 pixels tall, and that same read also has to find the rows and parse the notes.
+- So there is now a second pass. `lib/image.ts` keeps a larger in-memory copy of the photo
+  (`DETAIL_EDGE`, never uploaded) and `cropRow` cuts a row out of it by image fractions;
+  `app/api/parse/rows` reads each crop through `lib/rowread.ts`, which asks one question
+  about one cell. Splitting transcription from row-finding is the point.
+- `lib/reconcile.ts` holds the rules, and they are mostly limits: a close-up may **lower a
+  count or confirm it, never raise one** (a crop can catch the row above, and over-reporting
+  is the error that costs something); the winning reading brings its own transcription, so
+  counts never stop matching marks; an empty close-up over a row the page said had marks is
+  treated as a bad crop, not as proof, and flags rather than zeroing.
+- Skipped when the grid wasn't measured from the page — cropping from a guessed grid hands
+  the reader the wrong strip of paper. A failure costs that row its second look and nothing
+  else; the review the parent is waiting for is already in hand.
+- `tests/reconcile.test.js`: 38 checks, most asserting what the close-up is *not* allowed to
+  do, including the four real 9/10 cells.
+
+**Checked against the paper, or not**
+- `migrations/0005_harper_verification.sql` (applied live): `verified_at`, `verified_note` on
+  `harper_daily_logs`. Null for all five September days, which is the truth about them.
+- The report used to print "Each day was transcribed from the original page and checked by a
+  parent against the photograph before being entered." That was false for every day in the
+  database. It now counts them and says which.
+- Shown on the day page (banner + "I've checked these against the paper"), the table, and a
+  dashboard panel that links straight to the unchecked days. A day verifies on save from the
+  review screen, on correction, or on that button.
+
+**Also**
+- Confirmed the Vercel project exists and production tracks `main`; the fix_list item saying
+  deployment was still manual is closed.
+
+**Then: cleared the database**
+- Asked mid-session to delete the five uploaded days and start fresh. Done on the live
+  project: 5 days, 50 period rows cascaded, no photos and no training samples existed, and
+  the `harper-logs` bucket was already empty. `harper_settings` and `harper_pin_attempts`
+  were left alone.
+- `supabase/seed_september.sql` still holds those transcriptions, so the delete is
+  reversible — but they were never checked against paper, which is why starting clean is
+  the better record. Every day from here arrives as a photograph, which also means the
+  first upload is the first time the reader runs against real handwriting.
+
+**Still open**
+- Nothing here has run against a real photograph — no API key in a web session. The close-up
+  pass typechecks, builds, and its rules are tested on plain node; its hit rate is unknown.
+- The five September pages still need photographing. That is now the only thing between this
+  app and a record where every number has been checked.
+
 <!-- newest first; append a new dated entry on every "end session" -->
 
 ### 2026-09-16 — claude/beautiful-shannon-46kla5 (training-set capture)

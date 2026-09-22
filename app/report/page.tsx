@@ -26,6 +26,9 @@ export default async function ReportPage({
   const scope = describeFilters(filters);
 
   const observedPeriods = data.periodTotals.filter((p) => p.days_recorded > 0);
+  // How much of this slice a human has actually held up against the paper.
+  const verifiedDays = data.dailyTotals.filter((d) => d.verified).length;
+  const unverifiedDays = data.dailyTotals.length - verifiedDays;
   const photoLogs = data.logs.filter((log) => log.image_path);
   const photoUrls = sections.includes("photos")
     ? await signPhotos(photoLogs.map((log) => log.image_path as string), 1800)
@@ -137,8 +140,15 @@ export default async function ReportPage({
                     )}
                     <li style={{ color: "var(--text-secondary)" }}>
                       Counts come from the tally marks the classroom teacher recorded on the
-                      daily log form. Each day was transcribed from the original page and
-                      checked by a parent against the photograph before being entered.
+                      daily log form, transcribed one row at a time.{" "}
+                      {/* Never claim more than is true: a summary that says every number was
+                          checked when some were not is worth less in a meeting than one that
+                          says plainly which is which. */}
+                      {unverifiedDays === 0
+                        ? `All ${s.days} ${s.days === 1 ? "day" : "days"} here have been checked against the original page by a parent.`
+                        : verifiedDays === 0
+                          ? `${s.days === 1 ? "This day has" : `None of these ${s.days} days has`} yet been checked against the original page, so ${s.days === 1 ? "its" : "these"} numbers should be read as a transcription rather than a confirmed count.`
+                          : `${verifiedDays} of these ${s.days} days have been checked against the original page by a parent; the other ${unverifiedDays} ${unverifiedDays === 1 ? "is a transcription that has" : "are transcriptions that have"} not yet been checked.`}
                     </li>
                   </ul>
                 </section>
@@ -250,6 +260,12 @@ export default async function ReportPage({
                               {total} incidents
                             </span>
                           </div>
+                          {!log.verified_at && (
+                            <p className="mb-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                              Transcribed from the paper log; not yet checked against the original
+                              page.
+                            </p>
+                          )}
                           <table className="w-full border-collapse text-sm">
                             <tbody>
                               {periods.map((p) => {

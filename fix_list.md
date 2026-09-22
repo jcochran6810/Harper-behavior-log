@@ -8,14 +8,14 @@ Add new items at the top. Use the format:
 
 ## Open
 
-- [ ] 2026-09-16 — **Re-check the 9/10 log against the paper.** It was seeded at 66
-      incidents, the highest day on record, against notes that read positively
-      ("independently finished work", "completed math task with 3 redirects") — the
-      over-count this session was opened to fix. Its Specials row is also marked
-      "not present to see all behaviors" yet carries 10 tallies, which cannot both be
-      true. Open `/day/2026-09-10`, photograph the original page (the button is on that
-      page), then use "Fix these numbers". The same is worth doing for 9/8, 9/9, 9/11
-      and 9/14, none of which have a photo either.
+- [ ] 2026-09-22 — **The database is empty — start from photographs.** The five seeded
+      September days were deleted at the user's request so the record starts clean. Every
+      day from here on arrives through `/upload` as a photograph, which means the first
+      upload is also the first time the reader has ever run against real paper. Watch that
+      first one closely: whether the row grid lands on the right rows, and whether the
+      close-up pass agrees with the whole-page read or argues with it on every row. The
+      old transcriptions are still in `supabase/seed_september.sql` if they are ever
+      wanted back.
 - [ ] 2026-09-16 — The row grid behind the photo boxes has never been measured against a
       real photograph — no API key in a web session. Validation, fallback and the align
       handles are covered by `tests/geometry.test.js`, but how *often* the reader gets the
@@ -25,18 +25,10 @@ Add new items at the top. Use the format:
       counter is worth training at all. If Claude plus `lib/tally.ts` is accurate enough that
       review is a glance, it isn't — the human confirmation step can't be removed from an IEP
       record regardless of model quality. Check the corrected-vs-total ratio in Settings.
-- [ ] 2026-09-16 — Deploy: Vercel project must be imported by hand; the Claude↔Vercel
-      connection returns 403 on project creation. Once the project exists, set the five
-      env vars and attach `hc.stationinsight.com`.
-- [ ] 2026-09-16 — Confirm the dates on the 9/9 and 9/10 logs (both forms came home with
-      a blank date box; they're flagged `date_confirmed = false` and editable in /data).
-- [ ] 2026-09-16 — Verify the vision parser against a real photo end-to-end once
-      `ANTHROPIC_API_KEY` is set, and compare its counts to the seeded rows for that date.
-- [ ] 2026-09-16 — The five seeded September logs have no stored photo (they were
-      transcribed from images in a chat, not uploaded), so the Pages gallery and the
-      report's photo appendix are empty until the pages are photographed. A photo can now
-      be attached to an existing day from `/day/<date>` without re-entering it, and the
-      Pages tab lists the days still missing one.
+- [ ] 2026-09-22 — Verify the vision parser against a real photo end-to-end once
+      `ANTHROPIC_API_KEY` is set. There are no seeded rows to compare against any more, so
+      the check is against the paper itself: count a couple of cells by hand and see
+      whether the review screen agrees.
 - [ ] 2026-09-16 — Still uncovered by tests: the session cookie round-trip in
       `lib/session.ts`, PIN hashing in `lib/pin.ts`, and the CSV shape. (Tally counting
       and filtering/aggregation are covered.)
@@ -45,6 +37,28 @@ Add new items at the top. Use the format:
       but a scroll affordance (or a stacked layout on narrow screens) would be better.
 
 ## Done
+
+- [x] 2026-09-22 — Cleared all five seeded September days from the live database (50 period
+      rows cascaded; no photos or training samples existed). The app now starts empty, at
+      the user's request. `supabase/seed_september.sql` keeps the transcriptions.
+
+- [x] 2026-09-22 — Deployment is live: the Vercel project `harper-behavior-log` exists and
+      production tracks `main` (verified this session — latest production deployment was
+      commit `0deb1a6`). Attaching `hc.stationinsight.com` is still outstanding if a custom
+      domain is wanted.
+- [x] 2026-09-22 — Reading accuracy: every row that carries a number is now read a second
+      time from a close-up crop cut out of the full-resolution photo in the browser
+      (`lib/image.ts` `cropRow`, `lib/rowread.ts`, `app/api/parse/rows/route.ts`). The
+      close-up may lower a count or confirm it, never raise one, and the winning reading
+      brings its own transcription so counts never stop matching marks
+      (`lib/reconcile.ts`, `tests/reconcile.test.js`).
+- [x] 2026-09-22 — "Checked against the paper" is stored and shown
+      (`harper_daily_logs.verified_at`, migration `0005`). The report no longer claims
+      every day was checked by a parent — it counts them. The dashboard names the
+      unchecked days and links to them.
+- [x] 2026-09-22 — 9/10's Specials row claimed both "couldn't observe this period" and 10
+      incidents. Counts cleared, marks kept, day corrected from 66 to 56 live and in the
+      seed.
 
 - [x] 2026-09-16 — Training-set capture: every confirmed review and every later correction
       records the machine's reading beside the human's verdict, with the cell's box on the
