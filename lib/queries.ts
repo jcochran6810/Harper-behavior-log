@@ -15,7 +15,8 @@ const LOG_COLUMNS = `
   harper_log_periods (
     id, period_key, specials_subject, antecedent, notes, raw_tally,
     smiley_count, not_observed, confidence, total,
-    b1, b2, b3, b4, b5, b6, b7, b8
+    b1, b2, b3, b4, b5, b6, b7, b8,
+    assistance_count, removed_count
   )
 `;
 

@@ -23,6 +23,13 @@ export type Dataset = {
   /** Totals before filtering, so the UI can say "12 of 40 days". */
   allDays: number;
   allIncidents: number;
+  /**
+   * Times another adult was called in, and times Harper left the room, across
+   * this slice. NOT narrowed by the behavior filter — these aren't behaviors, so
+   * "aggression only" must not make it look as though assistance was called less
+   * often. The date, weekday and class-period filters do apply.
+   */
+  support: { assistance: number; removed: number };
 };
 
 function countIn(period: PeriodEntry, codes: BehaviorCode[]): number {
@@ -82,6 +89,9 @@ export function buildDataset(all: LogWithPeriods[], filters: Filters): Dataset {
     total: log.harper_log_periods.reduce((sum, p) => sum + p.total, 0),
     periods_with_incidents: log.harper_log_periods.filter((p) => p.total > 0).length,
     smileys: log.harper_log_periods.reduce((sum, p) => sum + p.smiley_count, 0),
+    // Untouched by the behavior filter on purpose — see Dataset.support.
+    assistance: log.harper_log_periods.reduce((sum, p) => sum + (p.assistance_count ?? 0), 0),
+    removed: log.harper_log_periods.reduce((sum, p) => sum + (p.removed_count ?? 0), 0),
   }));
 
   const behaviorDaily: BehaviorDaily[] = [];
@@ -113,6 +123,8 @@ export function buildDataset(all: LogWithPeriods[], filters: Filters): Dataset {
       total: rows.reduce((sum, p) => sum + p.total, 0),
       days_recorded: rows.length,
       smileys: rows.reduce((sum, p) => sum + p.smiley_count, 0),
+      assistance: rows.reduce((sum, p) => sum + (p.assistance_count ?? 0), 0),
+      removed: rows.reduce((sum, p) => sum + (p.removed_count ?? 0), 0),
     };
   });
 
@@ -143,5 +155,9 @@ export function buildDataset(all: LogWithPeriods[], filters: Filters): Dataset {
     periods,
     allDays: all.length,
     allIncidents,
+    support: {
+      assistance: dailyTotals.reduce((sum, d) => sum + d.assistance, 0),
+      removed: dailyTotals.reduce((sum, d) => sum + d.removed, 0),
+    },
   };
 }

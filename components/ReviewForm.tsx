@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { BEHAVIORS, PERIODS } from "@/lib/behaviors";
+import { BEHAVIORS, PERIODS, type SupportKey } from "@/lib/behaviors";
 import { fallbackLayout, type Layout } from "@/lib/geometry";
 import PhotoBoxes from "@/components/PhotoBoxes";
+import SupportCounters from "@/components/SupportCounters";
 import type { ParsedLog, PeriodEntry } from "@/lib/types";
 
 export function emptyParsedLog(): ParsedLog {
@@ -21,6 +22,8 @@ export function emptyParsedLog(): ParsedLog {
       not_observed: false,
       confidence: "high" as const,
       b1: 0, b2: 0, b3: 0, b4: 0, b5: 0, b6: 0, b7: 0, b8: 0,
+      assistance_count: 0,
+      removed_count: 0,
     })),
     layout: fallbackLayout(),
     layout_source: "estimated",
@@ -324,6 +327,13 @@ export default function ReviewForm({
                 ))}
               </div>
             )}
+
+            <SupportCounters
+              values={p}
+              onChange={(key: SupportKey, next) =>
+                update(i, { [key]: next } as Partial<PeriodEntry>)
+              }
+            />
 
             {p.period_key === "specials" && (
               <input

@@ -2,10 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
-import { BEHAVIORS, BEHAVIOR_KEYS, PERIOD_KEYS, PERIODS, type BehaviorKey } from "@/lib/behaviors";
+import {
+  BEHAVIORS,
+  BEHAVIOR_KEYS,
+  PERIOD_KEYS,
+  PERIODS,
+  type BehaviorKey,
+  type SupportKey,
+} from "@/lib/behaviors";
 import { fallbackLayout, type Layout } from "@/lib/geometry";
 import { prepareImage } from "@/lib/image";
 import PhotoBoxes from "@/components/PhotoBoxes";
+import SupportCounters, { SupportChips } from "@/components/SupportCounters";
 import { readTally, sameCounts, zeroCounts } from "@/lib/tally";
 import type { LogWithPeriods } from "@/lib/types";
 
@@ -110,6 +118,8 @@ export default function DayDetail({
     0,
   );
   const smileys = shown.reduce((sum, p) => sum + (p.smiley_count ?? 0), 0);
+  const assistance = shown.reduce((sum, p) => sum + (p.assistance_count ?? 0), 0);
+  const removed = shown.reduce((sum, p) => sum + (p.removed_count ?? 0), 0);
 
   const totalsByPeriod = useMemo(
     () =>
@@ -165,6 +175,8 @@ export default function DayDetail({
             specials_subject: p.specials_subject,
             not_observed: p.not_observed,
             smiley_count: p.smiley_count,
+            assistance_count: p.assistance_count ?? 0,
+            removed_count: p.removed_count ?? 0,
             ...Object.fromEntries(BEHAVIOR_KEYS.map((k) => [k, p[k]])),
           })),
         }),
@@ -453,6 +465,16 @@ export default function DayDetail({
             incidents recorded{smileys > 0 ? ` · ${smileys} smileys` : ""}
             {!log.verified_at && " · not yet checked against the paper"}
           </p>
+          {(assistance > 0 || removed > 0) && (
+            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+              {[
+                assistance > 0 ? `assistance called ${assistance}×` : null,
+                removed > 0 ? `removed from class ${removed}×` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
         </div>
         {editing ? (
           <div className="flex gap-2">
@@ -520,8 +542,14 @@ export default function DayDetail({
         // A period the teacher couldn't watch can't also have counted incidents.
         const contradicts = p.not_observed && subtotal > 0;
 
+        const supportHere = (p.assistance_count ?? 0) + (p.removed_count ?? 0);
         const quiet =
-          !editing && subtotal === 0 && !p.notes && !p.not_observed && activeKey !== p.period_key;
+          !editing &&
+          subtotal === 0 &&
+          supportHere === 0 &&
+          !p.notes &&
+          !p.not_observed &&
+          activeKey !== p.period_key;
         if (quiet) return null;
 
         return (
@@ -625,6 +653,13 @@ export default function DayDetail({
                   </div>
                 )}
 
+                <SupportCounters
+                  values={p}
+                  onChange={(key: SupportKey, next) =>
+                    update(p.period_key, { [key]: next } as Partial<Row>)
+                  }
+                />
+
                 <textarea
                   value={p.notes ?? ""}
                   onChange={(e) => update(p.period_key, { notes: e.target.value || null })}
@@ -650,6 +685,7 @@ export default function DayDetail({
                     ))}
                   </p>
                 )}
+                <SupportChips values={p} />
                 {p.notes && (
                   <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
                     {p.notes}

@@ -26,6 +26,62 @@ export const BEHAVIORS: Behavior[] = [
 export const BEHAVIOR_KEYS = ["b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"] as const;
 export type BehaviorKey = (typeof BEHAVIOR_KEYS)[number];
 
+/**
+ * Two things the log records that are NOT behaviors: how often another adult had
+ * to be called into the room, and how often Harper was taken out of it.
+ *
+ * They are kept apart from BEHAVIORS on purpose, and it is not a filing
+ * preference:
+ *
+ *  - The numbers 1-8 are the teacher's, printed on the paper form. Nothing may be
+ *    added to them.
+ *  - A behavior is something the child did. These two are what the school had to
+ *    do about it — which is a different kind of evidence, and the kind an ARD
+ *    committee asks for when the question is staffing rather than diagnosis.
+ *  - They are deliberately left out of a period's `total`, so every incident
+ *    figure stays comparable with every figure recorded before they existed, and
+ *    so a removal is never counted as a second incident on top of the behavior
+ *    that caused it.
+ *
+ * They also come from a different place on the page. Tally marks are counted;
+ * these are written in prose, so the reader proposes them from the teacher's own
+ * wording and a human confirms every non-zero one.
+ *
+ * No palette slot is assigned. The categorical palette's slot order is the
+ * colorblind-safety mechanism, so these are drawn in neutral ink and told apart
+ * by fill versus outline — a distinction that survives any kind of color vision.
+ */
+export type SupportEvent = {
+  key: "assistance_count" | "removed_count";
+  label: string;
+  short: string;
+  /** What counts, in the teacher's terms — shown next to the counter. */
+  hint: string;
+  /** How the charts tell the two apart without using color. */
+  mark: "solid" | "outline";
+};
+
+export const SUPPORT_EVENTS: SupportEvent[] = [
+  {
+    key: "assistance_count",
+    label: "Assistance called",
+    short: "Assistance",
+    hint: "Another adult was called into the room — support teacher, aide, administrator.",
+    mark: "solid",
+  },
+  {
+    key: "removed_count",
+    label: "Removed from class",
+    short: "Removed",
+    hint: "Harper was taken out of the classroom — office, calm room, sent home. Not scheduled pull-outs like therapy.",
+    mark: "outline",
+  },
+];
+
+export type SupportKey = SupportEvent["key"];
+
+export const SUPPORT_KEYS = SUPPORT_EVENTS.map((e) => e.key) as SupportKey[];
+
 export type Period = { key: string; label: string; timeRange: string; order: number };
 
 export const PERIODS: Period[] = [

@@ -11,11 +11,11 @@ import {
   TotalPerDayChart,
   weekdayDate,
 } from "@/components/charts";
-import { BEHAVIORS } from "@/lib/behaviors";
+import { BEHAVIORS, SUPPORT_EVENTS } from "@/lib/behaviors";
 import { buildDataset } from "@/lib/derive";
 import { activeCount, parseFilters, serializeFilters, type SearchParams } from "@/lib/filters";
 import { getLogs } from "@/lib/queries";
-import { pct, summarize } from "@/lib/stats";
+import { pct, perDayOf, summarize } from "@/lib/stats";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,10 @@ export default async function DashboardPage({
 
   const dates = data.dailyTotals.map((d) => d.log_date);
   const unverified = data.dailyTotals.filter((d) => !d.verified);
+  // Only the classes where something actually happened, worst first.
+  const supportByPeriod = data.periodTotals
+    .filter((p) => p.assistance > 0 || p.removed > 0)
+    .sort((a, b) => b.assistance + b.removed - (a.assistance + a.removed));
   const countsByCode = new Map<number, Map<string, number>>();
   for (const row of data.behaviorDaily) {
     if (!countsByCode.has(row.code)) countsByCode.set(row.code, new Map());
@@ -147,7 +151,65 @@ export default async function DashboardPage({
                   value={pct(s.concentration)}
                   note="of all incidents"
                 />
+                {/* Not behaviors, so these two are never narrowed by the behavior
+                    filter — see Dataset.support. */}
+                <StatTile
+                  label="Assistance called"
+                  value={data.support.assistance}
+                  note={`${perDayOf(data.support.assistance, s.days)} per school day`}
+                />
+                <StatTile
+                  label="Removed from class"
+                  value={data.support.removed}
+                  note={`${perDayOf(data.support.removed, s.days)} per school day`}
+                />
               </section>
+
+              {/* Which class needs a second adult — the staffing argument, which the
+                  eight behavior numbers on their own can't make. */}
+              {(data.support.assistance > 0 || data.support.removed > 0) && (
+                <section className="card mb-4 p-4">
+                  <h2 className="text-sm font-semibold">What the school had to do</h2>
+                  <p className="mb-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                    Times another adult was called into the room, and times Harper was taken
+                    out of it, by class period.
+                  </p>
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr style={{ color: "var(--text-muted)" }}>
+                        <th scope="col" className="py-1 text-left text-xs font-medium">
+                          Class
+                        </th>
+                        {SUPPORT_EVENTS.map((e) => (
+                          <th
+                            key={e.key}
+                            scope="col"
+                            className="py-1 text-right text-xs font-medium"
+                            title={e.hint}
+                          >
+                            {e.short}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {supportByPeriod.map((row) => (
+                        <tr
+                          key={row.period_key}
+                          className="border-t"
+                          style={{ borderColor: "var(--border)" }}
+                        >
+                          <th scope="row" className="py-1.5 text-left text-xs font-normal">
+                            {row.period_label}
+                          </th>
+                          <td className="tnum py-1.5 text-right">{row.assistance || "·"}</td>
+                          <td className="tnum py-1.5 text-right">{row.removed || "·"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              )}
 
               <section className="card mb-4 p-4">
                 <h2 className="text-sm font-semibold">Total incidents per day</h2>

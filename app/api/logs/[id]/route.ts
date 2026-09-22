@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { BEHAVIOR_KEYS, PERIOD_KEYS } from "@/lib/behaviors";
+import { BEHAVIOR_KEYS, PERIOD_KEYS, SUPPORT_KEYS } from "@/lib/behaviors";
 import { normalizeLayout } from "@/lib/geometry";
 import { buildSamples, recordSamples } from "@/lib/training";
 import { db, PHOTO_BUCKET } from "@/lib/supabase";
@@ -12,6 +12,8 @@ type PeriodPatch = {
   specials_subject?: string | null;
   not_observed?: boolean;
   smiley_count?: number;
+  assistance_count?: number;
+  removed_count?: number;
 } & Partial<Record<(typeof BEHAVIOR_KEYS)[number], number>>;
 
 function count(value: unknown): number {
@@ -94,6 +96,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       };
       if (key === "specials") row.specials_subject = text(period.specials_subject, 60);
       for (const bk of BEHAVIOR_KEYS) row[bk] = notObserved ? 0 : count(period[bk]);
+      // These two survive not_observed: a removal from a period the teacher
+      // couldn't watch is still a removal, and the notes are what recorded it.
+      for (const sk of SUPPORT_KEYS) row[sk] = count(period[sk]);
 
       const { error } = await supabase
         .from("harper_log_periods")

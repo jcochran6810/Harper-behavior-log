@@ -75,6 +75,41 @@ from a guessed grid would hand the reader the wrong strip of paper. Anything tha
 wrong here costs that row its second look and nothing else — the reading the parent is
 waiting for is already in hand. Covered by `tests/reconcile.test.js`.
 
+## Assistance called, and removals from class
+
+Two counts sit alongside the eight behaviors and are deliberately **not** part of them:
+
+- **Assistance called** — another adult was brought into the room: support teacher, aide,
+  administrator.
+- **Removed from class** — Harper was taken out of the room as a consequence of behavior.
+  A scheduled pull-out (therapy, the nurse, lunch, specials) is not a removal, and neither
+  is her leaving on her own.
+
+The eight numbered behaviors describe what the child did. These two describe what the
+school had to do about it, which is the different question an ARD committee is actually
+being asked to decide — "interrupting, nine times" is not a staffing case, and "assistance
+was called four times in five days, in Writing and Math" is. They are recorded per class
+period, because *which* class needs the second adult is the whole point.
+
+Three rules keep them honest:
+
+1. **They are never added to a period's total.** That column is generated from the eight
+   behavior counts and stays that way, so every incident figure remains comparable with
+   every figure recorded before these existed — and a removal is never counted as a second
+   incident on top of the behavior that caused it. The report says so in as many words.
+2. **The behavior filter does not narrow them.** Filtering to "aggression only" narrows the
+   incident counts, as it should, but assistance calls are not a behavior. Narrowing them
+   would let a filtered report understate the support the classroom needed. The date,
+   weekday and class-period filters do apply. Asserted in `tests/support.test.js`.
+3. **Every non-zero one is confirmed by a human.** These come from the teacher's
+   sentences, not from tally marks, so the reader proposes them and the review screen
+   flags each one with her wording next to it. Where two reads disagree, the lower stands,
+   the same rule the tallies follow.
+
+They get no color from the categorical palette — the slot order in that palette is the
+colorblind-safety mechanism, so these two are drawn in neutral ink and told apart by fill
+versus outline instead.
+
 ## Checked against the paper, or not
 
 Every number in this app starts as a transcription. Until someone holds a day up
@@ -200,6 +235,10 @@ The numbers on the paper form, which are the numbers everywhere in this app:
 | 7 | Taking shoes & socks off & throwing them |
 | 8 | Snacking |
 
+Two more things are tracked per period but are **not** behaviors and are never added to an
+incident total: `assistance_count` (another adult called into the room) and `removed_count`
+(taken out of the classroom). See above.
+
 The teacher writes repeated digits as tallies — `1111` means behavior 1 happened four
 times — and the parser is built specifically around counting those glyphs, including the
 stroke (`||||`) and cursive-loop styles the teacher also uses.
@@ -212,7 +251,9 @@ Everything lives in an existing Supabase project, namespaced with a `harper_` pr
 - `harper_daily_logs` — one row per school day (plus the raw model output, for audit,
   `row_geometry`: where each form row sits on the photo, as image fractions, and
   `verified_at`: when a human last checked the day against the original page)
-- `harper_log_periods` — one row per class period per day, with `b1`…`b8` counts
+- `harper_log_periods` — one row per class period per day, with `b1`…`b8` counts, plus
+  `assistance_count` and `removed_count` (not behaviors, and deliberately outside the
+  generated `total`)
 - `harper_settings` — app settings a parent can change without a redeploy; currently the
   PIN, stored as a salted scrypt hash
 - `harper_training_samples` — append-only: one row per period per confirmed review, holding

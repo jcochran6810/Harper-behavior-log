@@ -139,6 +139,9 @@ export async function POST(request: Request) {
         : "high",
       b1: count(p?.b1), b2: count(p?.b2), b3: count(p?.b3), b4: count(p?.b4),
       b5: count(p?.b5), b6: count(p?.b6), b7: count(p?.b7), b8: count(p?.b8),
+      // Not behaviors and not part of `total` — see SUPPORT_EVENTS.
+      assistance_count: count(p?.assistance_count),
+      removed_count: count(p?.removed_count),
     };
   });
 

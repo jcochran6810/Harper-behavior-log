@@ -3,13 +3,13 @@ import Nav from "@/components/Nav";
 import PrintButton from "@/components/PrintButton";
 import ReportOptions from "@/components/ReportOptions";
 import { PeriodHeatmap, TotalPerDayChart, weekdayDate } from "@/components/charts";
-import { PERIOD_KEYS, periodLabel } from "@/lib/behaviors";
+import { PERIOD_KEYS, periodLabel, SUPPORT_EVENTS } from "@/lib/behaviors";
 import { buildDataset } from "@/lib/derive";
 import { describeFilters, parseFilters, serializeFilters, type SearchParams } from "@/lib/filters";
 import { signPhotos } from "@/lib/photos";
 import { getLogs } from "@/lib/queries";
 import { parseSections } from "@/lib/report";
-import { pct, summarize } from "@/lib/stats";
+import { pct, perDayOf, summarize } from "@/lib/stats";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,9 @@ export default async function ReportPage({
   // How much of this slice a human has actually held up against the paper.
   const verifiedDays = data.dailyTotals.filter((d) => d.verified).length;
   const unverifiedDays = data.dailyTotals.length - verifiedDays;
+  const supportByPeriod = data.periodTotals
+    .filter((p) => p.assistance > 0 || p.removed > 0)
+    .sort((a, b) => b.assistance + b.removed - (a.assistance + a.removed));
   const photoLogs = data.logs.filter((log) => log.image_path);
   const photoUrls = sections.includes("photos")
     ? await signPhotos(photoLogs.map((log) => log.image_path as string), 1800)
@@ -234,6 +237,102 @@ export default async function ReportPage({
                     periodBehavior={data.periodBehavior}
                     behaviors={data.behaviors}
                   />
+                </section>
+              )}
+
+              {/* The eight behavior numbers describe the child. This section describes
+                  what the placement currently costs to run, which is the different
+                  question a committee is actually being asked to decide. */}
+              {sections.includes("support") && (
+                <section className="card mb-5 p-4">
+                  <h2 className="mb-1 text-base font-semibold">
+                    Assistance called, and removals from class
+                  </h2>
+                  <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>
+                    Taken from the classroom teacher&apos;s own written notes on the daily log,
+                    not from the tally marks, and confirmed by a parent. Scheduled pull-outs
+                    such as therapy are not counted as removals.
+                  </p>
+
+                  {data.support.assistance === 0 && data.support.removed === 0 ? (
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                      Across {s.days} recorded school {s.days === 1 ? "day" : "days"}, the notes
+                      describe no occasion when another adult was called into the room and none
+                      when Harper was removed from class.
+                    </p>
+                  ) : (
+                    <>
+                      <ul className="mb-3 space-y-1.5 text-sm">
+                        {SUPPORT_EVENTS.map((e) => {
+                          const total = e.key === "assistance_count"
+                            ? data.support.assistance
+                            : data.support.removed;
+                          const dayCount = data.dailyTotals.filter((d) =>
+                            (e.key === "assistance_count" ? d.assistance : d.removed) > 0,
+                          ).length;
+                          return (
+                            <li key={e.key}>
+                              <strong>{e.label}</strong>{" "}
+                              <span className="tnum">{total}</span>{" "}
+                              {total === 1 ? "time" : "times"} across {s.days} recorded{" "}
+                              {s.days === 1 ? "day" : "days"} —{" "}
+                              <span className="tnum">{perDayOf(total, s.days)}</span> per school
+                              day, on <span className="tnum">{dayCount}</span> separate{" "}
+                              {dayCount === 1 ? "day" : "days"}.
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      {supportByPeriod.length > 0 && (
+                        <table className="w-full border-collapse text-sm">
+                          <caption className="pb-2 text-left text-xs" style={{ color: "var(--text-muted)" }}>
+                            By class period, most affected first.
+                          </caption>
+                          <thead>
+                            <tr style={{ color: "var(--text-muted)" }}>
+                              <th scope="col" className="py-1 text-left text-xs font-medium">
+                                Class period
+                              </th>
+                              {SUPPORT_EVENTS.map((e) => (
+                                <th
+                                  key={e.key}
+                                  scope="col"
+                                  className="py-1 text-right text-xs font-medium"
+                                >
+                                  {e.label}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {supportByPeriod.map((row) => (
+                              <tr
+                                key={row.period_key}
+                                className="border-t"
+                                style={{ borderColor: "var(--border)" }}
+                              >
+                                <th scope="row" className="py-1.5 text-left text-xs font-normal">
+                                  {row.period_label}
+                                  <span className="ml-1" style={{ color: "var(--text-muted)" }}>
+                                    {row.time_range}
+                                  </span>
+                                </th>
+                                <td className="tnum py-1.5 text-right">{row.assistance || "·"}</td>
+                                <td className="tnum py-1.5 text-right">{row.removed || "·"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+
+                      <p className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}>
+                        Neither figure is included in the incident counts elsewhere in this
+                        report. They record what the school did in response, so counting them as
+                        incidents would report the same events twice.
+                      </p>
+                    </>
+                  )}
                 </section>
               )}
 

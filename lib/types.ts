@@ -12,6 +12,13 @@ export type PeriodEntry = {
   b1: number; b2: number; b3: number; b4: number;
   b5: number; b6: number; b7: number; b8: number;
   /**
+   * Not behaviors, and deliberately not part of `total`: how many times another
+   * adult was called into the room, and how many times Harper was taken out of
+   * it. See SUPPORT_EVENTS in lib/behaviors.ts.
+   */
+  assistance_count: number;
+  removed_count: number;
+  /**
    * Review-time only — never stored. Notes on how this row's numbers were
    * arrived at and anything that didn't add up, so the review screen can point
    * a human straight at the rows worth re-checking against the photo.
@@ -39,6 +46,9 @@ export type DailyTotal = {
   total: number;
   periods_with_incidents: number;
   smileys: number;
+  /** Times another adult was called in, and times she left the room, that day. */
+  assistance: number;
+  removed: number;
 };
 
 export type BehaviorDaily = {
@@ -57,6 +67,9 @@ export type PeriodTotal = {
   total: number;
   days_recorded: number;
   smileys: number;
+  /** Which class needed a second adult, and which one she left. */
+  assistance: number;
+  removed: number;
 };
 
 export type PeriodBehavior = {

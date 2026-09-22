@@ -93,6 +93,33 @@ OTHER MARKS
   - The Specials row is sometimes labeled with the actual subject (Library, PE, Music, Art).
     Put that in specials_subject.
 
+TWO THINGS TO READ OUT OF THE NOTES, NOT OFF THE TALLY MARKS
+Alongside the tallies, count two events that the teacher describes in words rather than
+recording as glyphs. These are the only numbers you may take from prose, and the bar is
+high: an EXPLICIT statement that it happened, in this row's notes.
+  - assistance_count — how many times ANOTHER ADULT WAS CALLED INTO THE ROOM during this
+    period. "Called for assistance", "I had to call for support", "admin came down",
+    "the support teacher came in", "had to get help". Count the separate occasions
+    described, not the number of adults.
+  - removed_count — how many times HARPER WAS TAKEN OUT OF THE CLASSROOM during this
+    period. "Taken to the office", "walked to the calm room", "sent home", "removed from
+    class", "had to leave the room".
+
+What does NOT count:
+  - A scheduled or routine departure is not a removal: "was pulled for therapy", "went to
+    the nurse", "walked to lunch", "went to specials", "left early" for a known reason,
+    a normal restroom trip. Only count leaving the room as a CONSEQUENCE of behavior.
+  - Harper leaving on her own — "ran out of the room", "walked out" — is not a removal.
+    It may well be behavior 6 or similar, but nobody removed her.
+  - A teacher describing an ordinary redirect, prompt, reminder or negotiation is not
+    assistance being called. "3 redirects", "needed reminders", "we talked" are the
+    classroom teacher doing her own job, not a second adult arriving.
+  - Another adult who was already in the room, or is always in the room, was not called.
+  - If the notes are ambiguous about whether it happened, or about how many times, use
+    the LOWER number and set confidence to "medium". These figures go into an argument
+    about staffing, and an inflated one discredits the whole record.
+  - Both are 0 for most rows. Zero is the normal answer.
+
 RULES
   - Return all ten periods, in schedule order, even when a row is blank.
   - raw_tally is null when the cell contains no tally glyphs at all.
@@ -150,6 +177,16 @@ const periodSchema = {
       type: "number",
       description: "Fraction of image height (0-1) of the ruled line BELOW this row.",
     },
+    assistance_count: {
+      type: "integer",
+      description:
+        "Times another adult was called into the room during this period, as explicitly described in these notes. 0 if not described.",
+    },
+    removed_count: {
+      type: "integer",
+      description:
+        "Times Harper was taken out of the classroom as a consequence of behavior, as explicitly described in these notes. Scheduled pull-outs, lunch, specials and her leaving on her own do not count. 0 if not described.",
+    },
     counts: {
       type: "object",
       additionalProperties: false,
@@ -163,6 +200,7 @@ const periodSchema = {
   required: [
     "period_key", "specials_subject", "antecedent", "notes", "raw_tally",
     "smiley_count", "not_observed", "confidence", "row_top", "row_bottom", "counts",
+    "assistance_count", "removed_count",
   ],
 } as const;
 
@@ -228,6 +266,8 @@ type RawPeriod = {
   row_top: number;
   row_bottom: number;
   counts: Record<string, number>;
+  assistance_count: number;
+  removed_count: number;
 };
 
 type RawLog = {
@@ -316,6 +356,8 @@ function emptyPeriod(key: string): PeriodEntry {
     not_observed: false,
     confidence: "low",
     b1: 0, b2: 0, b3: 0, b4: 0, b5: 0, b6: 0, b7: 0, b8: 0,
+    assistance_count: 0,
+    removed_count: 0,
     flags: ["This row wasn't returned by the reader — check it against the photo."],
   };
 }
@@ -516,9 +558,17 @@ export async function parseLogImage(
     let confidence = first.confidence;
     const flags = [...first.flags];
 
+    // The two prose-derived counts settle the same way the tallies do: where the
+    // reads disagree, keep the lower. Reading "called for assistance" out of a
+    // sentence is a judgement, not a measurement, so it errs downwards too.
+    let assistance = clampCount(p.assistance_count);
+    let removed = clampCount(p.removed_count);
+
     for (let i = 0; i < others.length; i++) {
       const alt = byKey[i + 1].get(key);
       if (!alt) continue;
+      assistance = Math.min(assistance, clampCount(alt.assistance_count));
+      removed = Math.min(removed, clampCount(alt.removed_count));
       const second = settlePeriod(alt);
       if (sameCounts(counts, second.counts)) {
         confidence = worseOf(confidence, second.confidence);
@@ -541,6 +591,25 @@ export async function parseLogImage(
       confidence = worseOf(confidence, "medium");
     }
 
+    // Every non-zero one of these is read out of a sentence rather than counted
+    // off the page, so it is always put in front of a human. These two figures
+    // are the staffing argument; an invented one would poison it.
+    if (assistance > 0 || removed > 0) {
+      const parts: string[] = [];
+      if (assistance > 0) parts.push(`assistance called ${assistance}×`);
+      if (removed > 0) parts.push(`removed from class ${removed}×`);
+      flags.push(
+        `Read out of the notes, not off the tally marks: ${parts.join(" and ")}. ` +
+          `Check that against the wording below before saving.` +
+          (p.not_observed
+            ? ` This period is also marked “couldn't observe”, which is not a contradiction — ` +
+              `the teacher can still write down what another adult reported to her — but it is ` +
+              `worth a second look.`
+            : ""),
+      );
+      confidence = worseOf(confidence, "medium");
+    }
+
     return {
       period_key: key,
       specials_subject: p.specials_subject || null,
@@ -552,6 +621,8 @@ export async function parseLogImage(
       confidence,
       b1: counts.b1, b2: counts.b2, b3: counts.b3, b4: counts.b4,
       b5: counts.b5, b6: counts.b6, b7: counts.b7, b8: counts.b8,
+      assistance_count: assistance,
+      removed_count: removed,
       flags,
     };
   });
