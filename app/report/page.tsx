@@ -29,9 +29,7 @@ export default async function ReportPage({
   // How much of this slice a human has actually held up against the paper.
   const verifiedDays = data.dailyTotals.filter((d) => d.verified).length;
   const unverifiedDays = data.dailyTotals.length - verifiedDays;
-  const supportByPeriod = data.periodTotals
-    .filter((p) => p.assistance > 0 || p.removed > 0)
-    .sort((a, b) => b.assistance + b.removed - (a.assistance + a.removed));
+  const supportDays = data.dailyTotals.filter((d) => d.assistance > 0 || d.removed > 0);
   const photoLogs = data.logs.filter((log) => log.image_path);
   const photoUrls = sections.includes("photos")
     ? await signPhotos(photoLogs.map((log) => log.image_path as string), 1800)
@@ -249,9 +247,9 @@ export default async function ReportPage({
                     Assistance called, and removals from class
                   </h2>
                   <p className="mb-3 text-xs" style={{ color: "var(--text-muted)" }}>
-                    Taken from the classroom teacher&apos;s own written notes on the daily log,
-                    not from the tally marks, and confirmed by a parent. Scheduled pull-outs
-                    such as therapy are not counted as removals.
+                    Counted once per school day, from the classroom teacher&apos;s own record
+                    on the daily log rather than from the tally marks, and confirmed by a
+                    parent. Scheduled pull-outs such as therapy are not counted as removals.
                   </p>
 
                   {data.support.assistance === 0 && data.support.removed === 0 ? (
@@ -284,15 +282,15 @@ export default async function ReportPage({
                         })}
                       </ul>
 
-                      {supportByPeriod.length > 0 && (
+                      {supportDays.length > 0 && (
                         <table className="w-full border-collapse text-sm">
                           <caption className="pb-2 text-left text-xs" style={{ color: "var(--text-muted)" }}>
-                            By class period, most affected first.
+                            The days it happened on. Days with neither are left out.
                           </caption>
                           <thead>
                             <tr style={{ color: "var(--text-muted)" }}>
                               <th scope="col" className="py-1 text-left text-xs font-medium">
-                                Class period
+                                Day
                               </th>
                               {SUPPORT_EVENTS.map((e) => (
                                 <th
@@ -306,23 +304,33 @@ export default async function ReportPage({
                             </tr>
                           </thead>
                           <tbody>
-                            {supportByPeriod.map((row) => (
+                            {supportDays.map((row) => (
                               <tr
-                                key={row.period_key}
+                                key={row.log_date}
                                 className="border-t"
                                 style={{ borderColor: "var(--border)" }}
                               >
                                 <th scope="row" className="py-1.5 text-left text-xs font-normal">
-                                  {row.period_label}
-                                  <span className="ml-1" style={{ color: "var(--text-muted)" }}>
-                                    {row.time_range}
-                                  </span>
+                                  {weekdayDate(row.log_date)}
                                 </th>
                                 <td className="tnum py-1.5 text-right">{row.assistance || "·"}</td>
                                 <td className="tnum py-1.5 text-right">{row.removed || "·"}</td>
                               </tr>
                             ))}
                           </tbody>
+                          <tfoot>
+                            <tr className="border-t" style={{ borderColor: "var(--border)" }}>
+                              <th scope="row" className="py-1.5 text-left text-xs font-medium">
+                                Total
+                              </th>
+                              <td className="tnum py-1.5 text-right font-semibold">
+                                {data.support.assistance}
+                              </td>
+                              <td className="tnum py-1.5 text-right font-semibold">
+                                {data.support.removed}
+                              </td>
+                            </tr>
+                          </tfoot>
                         </table>
                       )}
 

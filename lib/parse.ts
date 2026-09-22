@@ -93,22 +93,27 @@ OTHER MARKS
   - The Specials row is sometimes labeled with the actual subject (Library, PE, Music, Art).
     Put that in specials_subject.
 
-TWO THINGS TO READ OUT OF THE NOTES, NOT OFF THE TALLY MARKS
-Alongside the tallies, count two events that the teacher describes in words rather than
-recording as glyphs. These are the only numbers you may take from prose, and the bar is
-high: an EXPLICIT statement that it happened, in this row's notes.
-  - assistance_count — how many times ANOTHER ADULT WAS CALLED INTO THE ROOM during this
-    period. "Called for assistance", "I had to call for support", "admin came down",
-    "the support teacher came in", "had to get help". Count the separate occasions
-    described, not the number of adults.
-  - removed_count — how many times HARPER WAS TAKEN OUT OF THE CLASSROOM during this
-    period. "Taken to the office", "walked to the calm room", "sent home", "removed from
-    class", "had to leave the room".
+TWO COUNTS FOR THE WHOLE DAY, READ OUT OF THE NOTES
+Two numbers are counted ONCE FOR THE ENTIRE PAGE, not per row. They may be written in a
+box at the top of the form; if they are, read them there and trust that box over your own
+reading of the notes. If there is no such box, count the separate occasions described
+anywhere in the day's notes, adding them up across all ten rows.
+
+These are the only numbers you may take from prose, and the bar is high: an EXPLICIT
+statement that it happened.
+  - assistance_count — how many times ANOTHER ADULT WAS CALLED INTO THE ROOM across the
+    day. "Called for assistance", "I had to call for support", "admin came down", "the
+    support teacher came in", "had to get help". Count occasions, not the number of adults.
+  - removed_count — how many times HARPER WAS TAKEN OUT OF THE CLASSROOM across the day.
+    "Taken to the office", "walked to the calm room", "sent home", "removed from class",
+    "had to leave the room".
 
 What does NOT count:
   - A scheduled or routine departure is not a removal: "was pulled for therapy", "went to
     the nurse", "walked to lunch", "went to specials", "left early" for a known reason,
     a normal restroom trip. Only count leaving the room as a CONSEQUENCE of behavior.
+  - One episode is one event. A sentence describing a single incident in two rows, or a
+    removal and the return from it, is still one removal.
   - Harper leaving on her own — "ran out of the room", "walked out" — is not a removal.
     It may well be behavior 6 or similar, but nobody removed her.
   - A teacher describing an ordinary redirect, prompt, reminder or negotiation is not
@@ -118,7 +123,7 @@ What does NOT count:
   - If the notes are ambiguous about whether it happened, or about how many times, use
     the LOWER number and set confidence to "medium". These figures go into an argument
     about staffing, and an inflated one discredits the whole record.
-  - Both are 0 for most rows. Zero is the normal answer.
+  - Both are 0 on most days. Zero is the normal answer.
 
 RULES
   - Return all ten periods, in schedule order, even when a row is blank.
@@ -177,16 +182,6 @@ const periodSchema = {
       type: "number",
       description: "Fraction of image height (0-1) of the ruled line BELOW this row.",
     },
-    assistance_count: {
-      type: "integer",
-      description:
-        "Times another adult was called into the room during this period, as explicitly described in these notes. 0 if not described.",
-    },
-    removed_count: {
-      type: "integer",
-      description:
-        "Times Harper was taken out of the classroom as a consequence of behavior, as explicitly described in these notes. Scheduled pull-outs, lunch, specials and her leaving on her own do not count. 0 if not described.",
-    },
     counts: {
       type: "object",
       additionalProperties: false,
@@ -200,7 +195,6 @@ const periodSchema = {
   required: [
     "period_key", "specials_subject", "antecedent", "notes", "raw_tally",
     "smiley_count", "not_observed", "confidence", "row_top", "row_bottom", "counts",
-    "assistance_count", "removed_count",
   ],
 } as const;
 
@@ -232,6 +226,16 @@ function buildTool(strict: boolean): Anthropic.Tool {
         // minItems, and the API rejects the whole request otherwise. The count is
         // stated in the description, and any row the model skips is filled in as
         // an empty, flagged period below.
+        assistance_count: {
+          type: "integer",
+          description:
+            "For the WHOLE DAY: times another adult was called into the room. From the box at the top of the form if there is one, otherwise counted across all the notes. 0 if not described.",
+        },
+        removed_count: {
+          type: "integer",
+          description:
+            "For the WHOLE DAY: times Harper was taken out of the classroom as a consequence of behavior. Scheduled pull-outs, lunch, specials and her leaving on her own do not count. 0 if not described.",
+        },
         table_left: {
           type: "number",
           description: "Fraction of image width (0-1) of the table's left ruled edge.",
@@ -248,6 +252,7 @@ function buildTool(strict: boolean): Anthropic.Tool {
       },
       required: [
         "date_month", "date_day", "day_of_week", "overall_note",
+        "assistance_count", "removed_count",
         "table_left", "table_right", "periods",
       ],
     } as unknown as Anthropic.Tool.InputSchema,
@@ -266,8 +271,6 @@ type RawPeriod = {
   row_top: number;
   row_bottom: number;
   counts: Record<string, number>;
-  assistance_count: number;
-  removed_count: number;
 };
 
 type RawLog = {
@@ -275,6 +278,8 @@ type RawLog = {
   date_day: number | null;
   day_of_week: string | null;
   overall_note: string | null;
+  assistance_count: number;
+  removed_count: number;
   table_left: number;
   table_right: number;
   periods: RawPeriod[];
@@ -356,8 +361,6 @@ function emptyPeriod(key: string): PeriodEntry {
     not_observed: false,
     confidence: "low",
     b1: 0, b2: 0, b3: 0, b4: 0, b5: 0, b6: 0, b7: 0, b8: 0,
-    assistance_count: 0,
-    removed_count: 0,
     flags: ["This row wasn't returned by the reader — check it against the photo."],
   };
 }
@@ -558,17 +561,9 @@ export async function parseLogImage(
     let confidence = first.confidence;
     const flags = [...first.flags];
 
-    // The two prose-derived counts settle the same way the tallies do: where the
-    // reads disagree, keep the lower. Reading "called for assistance" out of a
-    // sentence is a judgement, not a measurement, so it errs downwards too.
-    let assistance = clampCount(p.assistance_count);
-    let removed = clampCount(p.removed_count);
-
     for (let i = 0; i < others.length; i++) {
       const alt = byKey[i + 1].get(key);
       if (!alt) continue;
-      assistance = Math.min(assistance, clampCount(alt.assistance_count));
-      removed = Math.min(removed, clampCount(alt.removed_count));
       const second = settlePeriod(alt);
       if (sameCounts(counts, second.counts)) {
         confidence = worseOf(confidence, second.confidence);
@@ -591,25 +586,6 @@ export async function parseLogImage(
       confidence = worseOf(confidence, "medium");
     }
 
-    // Every non-zero one of these is read out of a sentence rather than counted
-    // off the page, so it is always put in front of a human. These two figures
-    // are the staffing argument; an invented one would poison it.
-    if (assistance > 0 || removed > 0) {
-      const parts: string[] = [];
-      if (assistance > 0) parts.push(`assistance called ${assistance}×`);
-      if (removed > 0) parts.push(`removed from class ${removed}×`);
-      flags.push(
-        `Read out of the notes, not off the tally marks: ${parts.join(" and ")}. ` +
-          `Check that against the wording below before saving.` +
-          (p.not_observed
-            ? ` This period is also marked “couldn't observe”, which is not a contradiction — ` +
-              `the teacher can still write down what another adult reported to her — but it is ` +
-              `worth a second look.`
-            : ""),
-      );
-      confidence = worseOf(confidence, "medium");
-    }
-
     return {
       period_key: key,
       specials_subject: p.specials_subject || null,
@@ -621,13 +597,35 @@ export async function parseLogImage(
       confidence,
       b1: counts.b1, b2: counts.b2, b3: counts.b3, b4: counts.b4,
       b5: counts.b5, b6: counts.b6, b7: counts.b7, b8: counts.b8,
-      assistance_count: assistance,
-      removed_count: removed,
       flags,
     };
   });
 
   const { layout, measured } = settleLayout(reads);
+
+  // The two day-level counts settle the same way the tallies do: where the reads
+  // disagree, keep the lower. Reading "called for assistance" out of a sentence is
+  // a judgement rather than a measurement, so it errs downwards too — and because
+  // it came from prose, any non-zero value is always put in front of a human.
+  const assistance = reads.reduce((lowest, r) => Math.min(lowest, clampCount(r.assistance_count)), 99);
+  const removed = reads.reduce((lowest, r) => Math.min(lowest, clampCount(r.removed_count)), 99);
+
+  const supportFlags: string[] = [];
+  if (assistance > 0 || removed > 0) {
+    const parts: string[] = [];
+    if (assistance > 0) parts.push(`assistance called ${assistance}×`);
+    if (removed > 0) parts.push(`removed from class ${removed}×`);
+    supportFlags.push(
+      `Read out of the teacher's words, not off the tally marks: ${parts.join(" and ")}. ` +
+        `Check it against the page before saving.`,
+    );
+  }
+  if (reads.length > 1) {
+    const spread = reads.map((r) => clampCount(r.assistance_count) + clampCount(r.removed_count));
+    if (Math.min(...spread) !== Math.max(...spread)) {
+      supportFlags.push("The two readings of the page disagreed about these — kept the lower.");
+    }
+  }
 
   return {
     parsed: {
@@ -637,6 +635,9 @@ export async function parseLogImage(
       periods,
       layout,
       layout_source: measured ? "measured" : "estimated",
+      assistance_count: assistance,
+      removed_count: removed,
+      support_flags: supportFlags,
     },
     raw: { passes: reads.length, reads },
   };

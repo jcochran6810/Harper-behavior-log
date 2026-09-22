@@ -12,8 +12,6 @@ type PeriodPatch = {
   specials_subject?: string | null;
   not_observed?: boolean;
   smiley_count?: number;
-  assistance_count?: number;
-  removed_count?: number;
 } & Partial<Record<(typeof BEHAVIOR_KEYS)[number], number>>;
 
 function count(value: unknown): number {
@@ -55,6 +53,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     overall_note?: string | null;
     periods?: PeriodPatch[];
     layout?: unknown;
+    /** Day-level counts: assistance called, removed from class. */
+    support?: Partial<Record<(typeof SUPPORT_KEYS)[number], number>>;
     /** "I have held this day up against the paper and these numbers are right." */
     verified?: boolean;
     verified_note?: string | null;
@@ -96,9 +96,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       };
       if (key === "specials") row.specials_subject = text(period.specials_subject, 60);
       for (const bk of BEHAVIOR_KEYS) row[bk] = notObserved ? 0 : count(period[bk]);
-      // These two survive not_observed: a removal from a period the teacher
-      // couldn't watch is still a removal, and the notes are what recorded it.
-      for (const sk of SUPPORT_KEYS) row[sk] = count(period[sk]);
 
       const { error } = await supabase
         .from("harper_log_periods")
@@ -166,6 +163,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     patch.date_confirmed = true;
   }
   if (typeof body.date_confirmed === "boolean") patch.date_confirmed = body.date_confirmed;
+  if (body.support && typeof body.support === "object") {
+    for (const sk of SUPPORT_KEYS) {
+      if (body.support[sk] !== undefined) patch[sk] = count(body.support[sk]);
+    }
+  }
   if (typeof body.verified === "boolean") {
     patch.verified_at = body.verified ? new Date().toISOString() : null;
     patch.verified_note = body.verified

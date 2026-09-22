@@ -7,12 +7,13 @@ import { SUPPORT_EVENTS, type SupportKey } from "@/lib/behaviors";
  * did: how often another adult was called into the room, and how often she was
  * taken out of it.
  *
- * Kept visually apart from the eight behavior counters because they are a
- * different kind of evidence and they come from a different part of the page —
- * the teacher's sentences, not her tally marks. They stay visible on a period the
- * teacher marked "couldn't observe": a removal from specials is still a removal,
- * and the notes are the source, so there is nothing contradictory about recording
- * one. The reader flags it instead of silently keeping or clearing it.
+ * One box per DAY, shown at the top rather than inside a class period. That is how
+ * the paper records them, and it avoids asking anyone to decide which class a
+ * removal "belonged" to — a decision the form never makes.
+ *
+ * Kept apart from the eight behavior counters because they are a different kind of
+ * evidence and they come from a different part of the page: the teacher's own
+ * count, not her tally marks. Neither is ever added to an incident total.
  */
 
 type Values = Record<SupportKey, number>;

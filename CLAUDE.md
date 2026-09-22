@@ -186,6 +186,32 @@ branch merged into `main` and pushed. Do the following in order:
 
 ## Session log
 
+### 2026-09-22 — claude/nice-allen-bet182 (assistance and removals moved to per day)
+
+Follow-up in the same session: the two counts belong in one box at the top of each day,
+not on every class period.
+
+- `supabase/migrations/0007_harper_support_per_day.sql` (applied live) moves
+  `assistance_count` and `removed_count` onto `harper_daily_logs` and drops them from
+  `harper_log_periods`. No data moved — there is none. 0006 is kept as history with a
+  header pointing here, because the live database ran it and replaying the files must too.
+- Per-period was the wrong model: it would have made someone decide which class a removal
+  "belonged" to, and the paper never says. One box per day matches the form.
+- The reader now reads them once for the whole page, and is told to trust a printed box at
+  the top of the form over its own reading of the notes if one exists. Lower of the two
+  reads still wins, and a non-zero value still lands in front of a human — the flag now
+  sits on the box in `ReviewForm` (`ParsedLog.support_flags`) instead of on a row.
+- One `SupportCounters` box now, at the top of the review screen and on the day page (read
+  as two figures, editable under "Fix these numbers"). `PATCH /api/logs/[id]` takes a
+  `support` object; `POST /api/logs` takes the two at the top level.
+- The filter rule got sharper and is the thing to remember: neither the behavior filter NOR
+  the class-period filter narrows these, because they belong to the day. Only the date
+  window and the day of week do. A class-scoped view says so on screen rather than implying
+  the number is that class's. `tests/support.test.js` rewritten around it (28 checks).
+- Dashboard and report tables are per day now, with a total row; CSV carries them as
+  `day_assistance_called` / `day_removed_from_class`, prefixed so nobody sums a repeated
+  day attribute ten times.
+
 ### 2026-09-22 — claude/nice-allen-bet182 (assistance called, removals from class)
 
 Asked for a tracker of two things the eight behaviors can't express: how many times

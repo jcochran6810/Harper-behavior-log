@@ -30,7 +30,7 @@ export const REPORT_SECTIONS = [
     key: "support",
     label: "Assistance called and removals from class",
     blurb:
-      "How often another adult had to come into the room, and how often Harper was taken out of it, by class period. The staffing argument.",
+      "How often another adult had to come into the room, and how often Harper was taken out of it, day by day. The staffing argument.",
   },
   {
     key: "daily",

@@ -22,11 +22,11 @@ export function emptyParsedLog(): ParsedLog {
       not_observed: false,
       confidence: "high" as const,
       b1: 0, b2: 0, b3: 0, b4: 0, b5: 0, b6: 0, b7: 0, b8: 0,
-      assistance_count: 0,
-      removed_count: 0,
     })),
     layout: fallbackLayout(),
     layout_source: "estimated",
+    assistance_count: 0,
+    removed_count: 0,
   };
 }
 
@@ -116,6 +116,10 @@ export default function ReviewForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmReplace, setConfirmReplace] = useState(false);
+  const [support, setSupport] = useState<Record<SupportKey, number>>({
+    assistance_count: initial.assistance_count ?? 0,
+    removed_count: initial.removed_count ?? 0,
+  });
   const [layout, setLayout] = useState<Layout>(initial.layout ?? fallbackLayout());
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const rowRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -170,6 +174,7 @@ export default function ReviewForm({
           day_of_week: weekdayFrom(date),
           overall_note: note || null,
           date_confirmed: true,
+          ...support,
           periods,
           image: image?.base64 ?? null,
           mediaType: image?.mediaType ?? null,
@@ -228,6 +233,26 @@ export default function ReviewForm({
           {dateGuessed
             ? "The date box on the form was blank — please set the right date before saving."
             : `Read from the form · ${weekdayFrom(date) ?? ""}`}
+        </p>
+      </section>
+
+      {/* The day's own tally box — one pair of counts for the whole page, never
+          folded into the incident total. Read out of the teacher's words rather
+          than off the tally marks, so it always gets looked at. */}
+      <section className="card p-4">
+        <SupportCounters
+          values={support}
+          onChange={(key, next) => setSupport((prev) => ({ ...prev, [key]: next }))}
+        />
+        {(initial.support_flags ?? []).length > 0 && (
+          <ul className="mt-2 space-y-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+            {(initial.support_flags ?? []).map((flag, i) => (
+              <li key={i}>⚠ {flag}</li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
+          Counted once for the whole day. Kept separate from the incident count below.
         </p>
       </section>
 
@@ -327,13 +352,6 @@ export default function ReviewForm({
                 ))}
               </div>
             )}
-
-            <SupportCounters
-              values={p}
-              onChange={(key: SupportKey, next) =>
-                update(i, { [key]: next } as Partial<PeriodEntry>)
-              }
-            />
 
             {p.period_key === "specials" && (
               <input

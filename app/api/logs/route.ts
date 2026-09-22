@@ -14,6 +14,9 @@ type SaveBody = {
   day_of_week?: string | null;
   overall_note?: string | null;
   date_confirmed?: boolean;
+  /** Once for the whole day, not per period — see SUPPORT_EVENTS. */
+  assistance_count?: number;
+  removed_count?: number;
   periods?: PeriodEntry[];
   image?: string | null;
   mediaType?: string | null;
@@ -89,6 +92,9 @@ export async function POST(request: Request) {
     day_of_week: clean(body.day_of_week, 12),
     overall_note: clean(body.overall_note),
     date_confirmed: body.date_confirmed !== false,
+    // Counted once for the day, and never added to an incident total.
+    assistance_count: count(body.assistance_count),
+    removed_count: count(body.removed_count),
     image_path: imagePath,
     // Only a grid that passes validation is stored; a bad one would put boxes
     // over the wrong rows, and an even split is the safer default.
@@ -139,9 +145,6 @@ export async function POST(request: Request) {
         : "high",
       b1: count(p?.b1), b2: count(p?.b2), b3: count(p?.b3), b4: count(p?.b4),
       b5: count(p?.b5), b6: count(p?.b6), b7: count(p?.b7), b8: count(p?.b8),
-      // Not behaviors and not part of `total` — see SUPPORT_EVENTS.
-      assistance_count: count(p?.assistance_count),
-      removed_count: count(p?.removed_count),
     };
   });
 

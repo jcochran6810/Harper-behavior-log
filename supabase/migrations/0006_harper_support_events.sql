@@ -1,3 +1,7 @@
+-- SUPERSEDED BY 0007, which moves both columns onto harper_daily_logs. They are
+-- counted once per day, not per class period. Kept as history: the live database
+-- ran this, so replaying the files must run it too.
+--
 -- How often the room needed another adult, and how often Harper left it.
 --
 -- These are the two facts an ARD committee asks for that the eight numbered

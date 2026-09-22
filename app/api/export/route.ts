@@ -23,8 +23,10 @@ export async function GET(request: Request) {
   const header = [
     "date", "day", "period", "specials_subject", "antecedent",
     ...data.behaviors.map((b) => b.short.toLowerCase().replace(/\s+/g, "_")),
-    "period_total", "assistance_called", "removed_from_class",
-    "smileys", "not_observed", "confidence", "raw_tally", "notes",
+    "period_total", "smileys", "not_observed", "confidence", "raw_tally", "notes",
+    // Day attributes, so they repeat down the day's ten rows exactly as `date`
+    // does. The day_ prefix is the warning not to sum them.
+    "day_assistance_called", "day_removed_from_class",
   ];
 
   const rows = [header.join(",")];
@@ -43,14 +45,13 @@ export async function GET(request: Request) {
           p.antecedent ?? "",
           ...data.behaviors.map((b) => p[`b${b.code}` as "b1"]),
           p.total,
-          // Deliberately after period_total and not inside it: neither is an incident.
-          p.assistance_count ?? 0,
-          p.removed_count ?? 0,
           p.smiley_count,
           p.not_observed ? "yes" : "no",
           p.confidence,
           p.raw_tally ?? "",
           p.notes ?? "",
+          log.assistance_count ?? 0,
+          log.removed_count ?? 0,
         ]
           .map(cell)
           .join(","),

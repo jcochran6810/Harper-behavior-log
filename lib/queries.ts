@@ -11,12 +11,11 @@ import type { LogWithPeriods } from "./types";
 
 const LOG_COLUMNS = `
   id, log_date, day_of_week, date_confirmed, overall_note, image_path, row_geometry,
-  verified_at, verified_note,
+  verified_at, verified_note, assistance_count, removed_count,
   harper_log_periods (
     id, period_key, specials_subject, antecedent, notes, raw_tally,
     smiley_count, not_observed, confidence, total,
-    b1, b2, b3, b4, b5, b6, b7, b8,
-    assistance_count, removed_count
+    b1, b2, b3, b4, b5, b6, b7, b8
   )
 `;
 

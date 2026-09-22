@@ -12,13 +12,6 @@ export type PeriodEntry = {
   b1: number; b2: number; b3: number; b4: number;
   b5: number; b6: number; b7: number; b8: number;
   /**
-   * Not behaviors, and deliberately not part of `total`: how many times another
-   * adult was called into the room, and how many times Harper was taken out of
-   * it. See SUPPORT_EVENTS in lib/behaviors.ts.
-   */
-  assistance_count: number;
-  removed_count: number;
-  /**
    * Review-time only — never stored. Notes on how this row's numbers were
    * arrived at and anything that didn't add up, so the review screen can point
    * a human straight at the rows worth re-checking against the photo.
@@ -35,6 +28,11 @@ export type ParsedLog = {
   layout: Layout;
   /** "estimated" means the grid is an even split and wants aligning by hand. */
   layout_source: "measured" | "estimated";
+  /** Read out of the teacher's prose, once for the day. Always confirmed by a human. */
+  assistance_count: number;
+  removed_count: number;
+  /** Why those two want checking — review-time only, never stored. */
+  support_flags?: string[];
 };
 
 export type DailyTotal = {
@@ -67,9 +65,6 @@ export type PeriodTotal = {
   total: number;
   days_recorded: number;
   smileys: number;
-  /** Which class needed a second adult, and which one she left. */
-  assistance: number;
-  removed: number;
 };
 
 export type PeriodBehavior = {
@@ -95,6 +90,14 @@ export type LogWithPeriods = {
    */
   verified_at: string | null;
   verified_note: string | null;
+  /**
+   * Counted once for the whole day, from the box at the top of the form: how many
+   * times another adult was called into the room, and how many times Harper was
+   * taken out of it. Neither is a behavior and neither is ever added to an
+   * incident total. See SUPPORT_EVENTS in lib/behaviors.ts.
+   */
+  assistance_count: number;
+  removed_count: number;
   overall_note: string | null;
   image_path: string | null;
   harper_log_periods: (PeriodEntry & { id: string; total: number })[];

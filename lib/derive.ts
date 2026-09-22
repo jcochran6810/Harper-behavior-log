@@ -25,9 +25,14 @@ export type Dataset = {
   allIncidents: number;
   /**
    * Times another adult was called in, and times Harper left the room, across
-   * this slice. NOT narrowed by the behavior filter — these aren't behaviors, so
-   * "aggression only" must not make it look as though assistance was called less
-   * often. The date, weekday and class-period filters do apply.
+   * this slice.
+   *
+   * Recorded once per DAY, so only the filters that pick days can narrow them:
+   * the date range and the day of week. The behavior filter cannot ("aggression
+   * only" must not make it look as though assistance was called less often), and
+   * neither can the class-period filter, because the form never says which class
+   * a removal happened in. A view scoped to one class therefore still reports the
+   * whole day's figure, and the UI says so rather than implying otherwise.
    */
   support: { assistance: number; removed: number };
 };
@@ -89,9 +94,9 @@ export function buildDataset(all: LogWithPeriods[], filters: Filters): Dataset {
     total: log.harper_log_periods.reduce((sum, p) => sum + p.total, 0),
     periods_with_incidents: log.harper_log_periods.filter((p) => p.total > 0).length,
     smileys: log.harper_log_periods.reduce((sum, p) => sum + p.smiley_count, 0),
-    // Untouched by the behavior filter on purpose — see Dataset.support.
-    assistance: log.harper_log_periods.reduce((sum, p) => sum + (p.assistance_count ?? 0), 0),
-    removed: log.harper_log_periods.reduce((sum, p) => sum + (p.removed_count ?? 0), 0),
+    // Day-level, so untouched by the behavior and class-period filters alike.
+    assistance: log.assistance_count ?? 0,
+    removed: log.removed_count ?? 0,
   }));
 
   const behaviorDaily: BehaviorDaily[] = [];
@@ -123,8 +128,6 @@ export function buildDataset(all: LogWithPeriods[], filters: Filters): Dataset {
       total: rows.reduce((sum, p) => sum + p.total, 0),
       days_recorded: rows.length,
       smileys: rows.reduce((sum, p) => sum + p.smiley_count, 0),
-      assistance: rows.reduce((sum, p) => sum + (p.assistance_count ?? 0), 0),
-      removed: rows.reduce((sum, p) => sum + (p.removed_count ?? 0), 0),
     };
   });
 

@@ -118,9 +118,9 @@ export default function LogTable({
               (a, b) => PERIOD_KEYS.indexOf(a.period_key) - PERIOD_KEYS.indexOf(b.period_key),
             );
             const total = periods.reduce((sum, p) => sum + p.total, 0);
-            // Not incidents, so shown on their own line rather than in the total.
-            const assistance = periods.reduce((sum, p) => sum + (p.assistance_count ?? 0), 0);
-            const removed = periods.reduce((sum, p) => sum + (p.removed_count ?? 0), 0);
+            // Day-level, and not incidents, so shown on their own line.
+            const assistance = log.assistance_count ?? 0;
+            const removed = log.removed_count ?? 0;
             const busiest = periods
               .filter((p) => p.total > 0)
               .sort((a, b) => b.total - a.total)

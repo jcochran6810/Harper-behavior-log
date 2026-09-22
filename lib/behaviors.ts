@@ -38,10 +38,14 @@ export type BehaviorKey = (typeof BEHAVIOR_KEYS)[number];
  *  - A behavior is something the child did. These two are what the school had to
  *    do about it — which is a different kind of evidence, and the kind an ARD
  *    committee asks for when the question is staffing rather than diagnosis.
- *  - They are deliberately left out of a period's `total`, so every incident
- *    figure stays comparable with every figure recorded before they existed, and
- *    so a removal is never counted as a second incident on top of the behavior
- *    that caused it.
+ *  - They are deliberately left out of every incident total, so those figures stay
+ *    comparable with everything recorded before these existed, and so a removal is
+ *    never counted as a second incident on top of the behavior that caused it.
+ *
+ * They are counted ONCE PER DAY, not per class period, because that is how the
+ * form records them — a box at the top of the page. Per-period would mean asking
+ * someone to decide which class a removal "belonged" to, a decision the paper
+ * never makes.
  *
  * They also come from a different place on the page. Tally marks are counted;
  * these are written in prose, so the reader proposes them from the teacher's own
