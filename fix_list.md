@@ -55,6 +55,12 @@ Add new items at the top. Use the format:
 
 ## Done
 
+- [x] 2026-09-23 — The two support counts carry their own confirmation tick
+      (`support_confirmed_at`, migration `0008`). Required before saving when either count
+      is above zero, optional on a quiet day. Stored separately from `verified_at` because
+      it is a narrower claim, and never set on the reviewer's behalf. Shown on the day
+      page, the dashboard card and the printed report.
+
 - [x] 2026-09-23 — Assistance called and removals from class now have a chart, not just
       tiles and a table: grouped bars per day on the dashboard and in the report
       (`SupportPerDayChart`), with a legend and the numbers table kept underneath as the

@@ -107,10 +107,23 @@ Three rules keep them honest:
    Neither can the class-period filter: the counts belong to the day, so a view scoped to
    Writing still reports the whole day's figure, and the screen says so rather than
    implying otherwise. Asserted in `tests/support.test.js`.
-3. **Every non-zero one is confirmed by a human.** These come from the teacher's own count
-   or her sentences, not from tally marks, so the reader proposes them and the review
-   screen shows why next to the box. Where two reads disagree, the lower stands — the same
-   rule the tallies follow.
+3. **Every non-zero one is confirmed by a human, explicitly.** These come from the
+   teacher's own count or her sentences, not from tally marks, so the reader proposes them
+   and the review screen shows why next to the box. Where two reads disagree, the lower
+   stands — the same rule the tallies follow.
+
+   The box carries its own tick: *"These two numbers are right for this day."* When either
+   count is above zero the tick is **required** — the save button says so and won't go
+   until it's ticked. On a day with neither, it's optional, because a day with nothing to
+   report has nothing to vouch for and demanding a tick on every quiet day would only
+   teach people to tick without looking.
+
+   That tick is stored as `support_confirmed_at`, separate from `verified_at`. The latter
+   says someone checked the whole day against the page; this one says someone specifically
+   stood behind these two figures — worth distinguishing, since they're the numbers a
+   staffing argument would quote. It is never set on the reviewer's behalf: saving a log
+   is not by itself a statement about them. The day page and the printed report both say
+   which days were confirmed.
 
 On the dashboard and in the report they get their own chart: grouped bars per school day,
 one pair per day, with the numbers table underneath. It is a **separate plot** from the
@@ -272,7 +285,8 @@ Everything lives in an existing Supabase project, namespaced with a `harper_` pr
   `row_geometry`: where each form row sits on the photo, as image fractions, and
   `verified_at`: when a human last checked the day against the original page, and
   `assistance_count` / `removed_count`: the day's two support counts, which are not
-  behaviors and never part of an incident total)
+  behaviors and never part of an incident total, plus `support_confirmed_at`: when a human
+  ticked those two as correct)
 - `harper_log_periods` — one row per class period per day, with `b1`…`b8` counts
 - `harper_settings` — app settings a parent can change without a redeploy; currently the
   PIN, stored as a salted scrypt hash

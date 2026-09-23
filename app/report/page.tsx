@@ -36,6 +36,8 @@ export default async function ReportPage({
   const verifiedDays = data.dailyTotals.filter((d) => d.verified).length;
   const unverifiedDays = data.dailyTotals.length - verifiedDays;
   const supportDays = data.dailyTotals.filter((d) => d.assistance > 0 || d.removed > 0);
+  // Of the days that actually reported one, how many did a person vouch for?
+  const supportConfirmedDays = supportDays.filter((d) => d.support_confirmed).length;
   const photoLogs = data.logs.filter((log) => log.image_path);
   const photoUrls = sections.includes("photos")
     ? await signPhotos(photoLogs.map((log) => log.image_path as string), 1800)
@@ -351,6 +353,15 @@ export default async function ReportPage({
                         Neither figure is included in the incident counts elsewhere in this
                         report. They record what the school did in response, so counting them as
                         incidents would report the same events twice.
+                      </p>
+                      {/* These come from the teacher's wording rather than her tally
+                          marks, so the packet says plainly who stood behind them. */}
+                      <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                        {supportDays.length > 0 && supportConfirmedDays === supportDays.length
+                          ? `A parent confirmed these figures on every one of the ${supportDays.length} ${supportDays.length === 1 ? "day" : "days"} that reported them.`
+                          : supportConfirmedDays === 0
+                            ? `These figures have not yet been confirmed by a parent, so they should be read as a transcription of the teacher's notes rather than a checked count.`
+                            : `A parent confirmed these figures on ${supportConfirmedDays} of the ${supportDays.length} days that reported them; the rest are still only a transcription of the teacher's notes.`}
                       </p>
                     </>
                   )}

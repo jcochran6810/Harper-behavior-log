@@ -55,6 +55,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     layout?: unknown;
     /** Day-level counts: assistance called, removed from class. */
     support?: Partial<Record<(typeof SUPPORT_KEYS)[number], number>>;
+    /** The tick confirming those two are right. */
+    support_confirmed?: boolean;
     /** "I have held this day up against the paper and these numbers are right." */
     verified?: boolean;
     verified_note?: string | null;
@@ -167,6 +169,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     for (const sk of SUPPORT_KEYS) {
       if (body.support[sk] !== undefined) patch[sk] = count(body.support[sk]);
     }
+  }
+  if (typeof body.support_confirmed === "boolean") {
+    patch.support_confirmed_at = body.support_confirmed ? new Date().toISOString() : null;
   }
   if (typeof body.verified === "boolean") {
     patch.verified_at = body.verified ? new Date().toISOString() : null;

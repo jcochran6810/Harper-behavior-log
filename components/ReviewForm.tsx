@@ -120,6 +120,12 @@ export default function ReviewForm({
     assistance_count: initial.assistance_count ?? 0,
     removed_count: initial.removed_count ?? 0,
   });
+  // The reviewer's tick that those two are right. Never pre-ticked: the whole
+  // point is that a person looked, and a box that arrives already ticked records
+  // nothing.
+  const [supportConfirmed, setSupportConfirmed] = useState(false);
+  const [triedToSave, setTriedToSave] = useState(false);
+  const supportRef = useRef<HTMLElement>(null);
   const [layout, setLayout] = useState<Layout>(initial.layout ?? fallbackLayout());
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const rowRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -162,7 +168,19 @@ export default function ReviewForm({
     setPeriods((prev) => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)));
   }
 
+  /** A claim of one or more support events has to be vouched for before it is saved. */
+  const supportNeedsTick =
+    support.assistance_count + support.removed_count > 0 && !supportConfirmed;
+
   async function save(replace: boolean) {
+    setTriedToSave(true);
+    if (supportNeedsTick) {
+      setError(
+        "Tick the box confirming the assistance and removal counts before saving — they're read out of the teacher's wording, so they need a person to agree with them.",
+      );
+      supportRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -175,6 +193,7 @@ export default function ReviewForm({
           overall_note: note || null,
           date_confirmed: true,
           ...support,
+          support_confirmed: supportConfirmed,
           periods,
           image: image?.base64 ?? null,
           mediaType: image?.mediaType ?? null,
@@ -239,10 +258,13 @@ export default function ReviewForm({
       {/* The day's own tally box — one pair of counts for the whole page, never
           folded into the incident total. Read out of the teacher's words rather
           than off the tally marks, so it always gets looked at. */}
-      <section className="card p-4">
+      <section className="card p-4" ref={supportRef}>
         <SupportCounters
           values={support}
           onChange={(key, next) => setSupport((prev) => ({ ...prev, [key]: next }))}
+          confirmed={supportConfirmed}
+          onConfirmedChange={setSupportConfirmed}
+          showRequired={triedToSave}
         />
         {(initial.support_flags ?? []).length > 0 && (
           <ul className="mt-2 space-y-1 text-xs" style={{ color: "var(--text-secondary)" }}>
@@ -428,9 +450,13 @@ export default function ReviewForm({
           onClick={() => void save(false)}
           disabled={saving}
           className="sticky bottom-20 w-full rounded-full py-4 text-base font-semibold text-white shadow-lg disabled:opacity-50"
-          style={{ background: BEHAVIORS[0].color }}
+          style={{ background: supportNeedsTick ? "var(--text-muted)" : BEHAVIORS[0].color }}
         >
-          {saving ? "Saving…" : `Save ${dayTotal} incidents for ${date}`}
+          {saving
+            ? "Saving…"
+            : supportNeedsTick
+              ? "Confirm the assistance and removal counts first"
+              : `Save ${dayTotal} incidents for ${date}`}
         </button>
       )}
     </div>

@@ -106,6 +106,7 @@ export default function DayDetail({
     assistance_count: log.assistance_count ?? 0,
     removed_count: log.removed_count ?? 0,
   });
+  const [supportConfirmed, setSupportConfirmed] = useState(Boolean(log.support_confirmed_at));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
@@ -184,6 +185,7 @@ export default function DayDetail({
             ...Object.fromEntries(BEHAVIOR_KEYS.map((k) => [k, p[k]])),
           })),
           support,
+          support_confirmed: supportConfirmed,
         }),
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -500,6 +502,7 @@ export default function DayDetail({
                   assistance_count: log.assistance_count ?? 0,
                   removed_count: log.removed_count ?? 0,
                 });
+                setSupportConfirmed(Boolean(log.support_confirmed_at));
                 setEditing(false);
                 setError(null);
               }}
@@ -533,6 +536,8 @@ export default function DayDetail({
           <SupportCounters
             values={support}
             onChange={(key, next) => setSupport((prev) => ({ ...prev, [key]: next }))}
+            confirmed={supportConfirmed}
+            onConfirmedChange={setSupportConfirmed}
           />
         </section>
       ) : (
@@ -561,6 +566,18 @@ export default function DayDetail({
           </div>
           <p className="mt-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
             Counted once for the whole day. Not part of the {dayTotal} incidents above.
+          </p>
+          {/* These two are read out of the teacher's wording rather than counted
+              off marks, so whether a person vouched for them is worth showing. */}
+          <p
+            className="mt-1 text-[11px]"
+            style={{ color: log.support_confirmed_at ? "var(--text-muted)" : "var(--warning)" }}
+          >
+            {log.support_confirmed_at
+              ? "✓ Confirmed correct by a person."
+              : assistance + removed > 0
+                ? "Not yet confirmed by a person — open “Fix these numbers” to check them."
+                : "Not confirmed. Nothing was recorded, so there is nothing to confirm."}
           </p>
         </section>
       )}
