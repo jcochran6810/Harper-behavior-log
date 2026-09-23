@@ -2,7 +2,13 @@ import FilterBar from "@/components/FilterBar";
 import Nav from "@/components/Nav";
 import PrintButton from "@/components/PrintButton";
 import ReportOptions from "@/components/ReportOptions";
-import { PeriodHeatmap, TotalPerDayChart, weekdayDate } from "@/components/charts";
+import {
+  PeriodHeatmap,
+  SupportLegend,
+  SupportPerDayChart,
+  TotalPerDayChart,
+  weekdayDate,
+} from "@/components/charts";
 import { PERIOD_KEYS, periodLabel, SUPPORT_EVENTS } from "@/lib/behaviors";
 import { buildDataset } from "@/lib/derive";
 import { describeFilters, parseFilters, serializeFilters, type SearchParams } from "@/lib/filters";
@@ -30,6 +36,8 @@ export default async function ReportPage({
   const verifiedDays = data.dailyTotals.filter((d) => d.verified).length;
   const unverifiedDays = data.dailyTotals.length - verifiedDays;
   const supportDays = data.dailyTotals.filter((d) => d.assistance > 0 || d.removed > 0);
+  // Of the days that actually reported one, how many did a person vouch for?
+  const supportConfirmedDays = supportDays.filter((d) => d.support_confirmed).length;
   const photoLogs = data.logs.filter((log) => log.image_path);
   const photoUrls = sections.includes("photos")
     ? await signPhotos(photoLogs.map((log) => log.image_path as string), 1800)
@@ -282,6 +290,13 @@ export default async function ReportPage({
                         })}
                       </ul>
 
+                      {/* Its own plot: single figures against incident counts in
+                          the dozens, and one chart never carries two y-scales. */}
+                      <SupportPerDayChart data={data.dailyTotals} />
+                      <div className="mb-3 mt-1 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                        <SupportLegend />
+                      </div>
+
                       {supportDays.length > 0 && (
                         <table className="w-full border-collapse text-sm">
                           <caption className="pb-2 text-left text-xs" style={{ color: "var(--text-muted)" }}>
@@ -338,6 +353,15 @@ export default async function ReportPage({
                         Neither figure is included in the incident counts elsewhere in this
                         report. They record what the school did in response, so counting them as
                         incidents would report the same events twice.
+                      </p>
+                      {/* These come from the teacher's wording rather than her tally
+                          marks, so the packet says plainly who stood behind them. */}
+                      <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                        {supportDays.length > 0 && supportConfirmedDays === supportDays.length
+                          ? `A parent confirmed these figures on every one of the ${supportDays.length} ${supportDays.length === 1 ? "day" : "days"} that reported them.`
+                          : supportConfirmedDays === 0
+                            ? `These figures have not yet been confirmed by a parent, so they should be read as a transcription of the teacher's notes rather than a checked count.`
+                            : `A parent confirmed these figures on ${supportConfirmedDays} of the ${supportDays.length} days that reported them; the rest are still only a transcription of the teacher's notes.`}
                       </p>
                     </>
                   )}

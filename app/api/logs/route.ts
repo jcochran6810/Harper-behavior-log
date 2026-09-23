@@ -17,6 +17,8 @@ type SaveBody = {
   /** Once for the whole day, not per period — see SUPPORT_EVENTS. */
   assistance_count?: number;
   removed_count?: number;
+  /** The reviewer ticked "these two are right". Never inferred. */
+  support_confirmed?: boolean;
   periods?: PeriodEntry[];
   image?: string | null;
   mediaType?: string | null;
@@ -95,6 +97,9 @@ export async function POST(request: Request) {
     // Counted once for the day, and never added to an incident total.
     assistance_count: count(body.assistance_count),
     removed_count: count(body.removed_count),
+    // Only ever set from an explicit tick on the review screen — saving a log is
+    // not by itself a statement about these two, which come from prose.
+    support_confirmed_at: body.support_confirmed === true ? new Date().toISOString() : null,
     image_path: imagePath,
     // Only a grid that passes validation is stored; a bad one would put boxes
     // over the wrong rows, and an even split is the safer default.

@@ -65,6 +65,7 @@ const logs = [
     verified_at: null,
     assistance_count: 1,
     removed_count: 0,
+    support_confirmed_at: "2026-09-16T18:00:00Z",
     harper_log_periods: [period("writing", { b6: 5 }), period("science", {})],
   },
   {
@@ -77,6 +78,8 @@ const logs = [
     verified_at: null,
     assistance_count: 0,
     removed_count: 2,
+    // Reported two removals but nobody has ticked the box.
+    support_confirmed_at: null,
     harper_log_periods: [period("reading", {}), period("math", { b1: 2 })],
   },
   {
@@ -168,6 +171,33 @@ check("the day totals add up to the slice totals",
     d.dailyTotals.reduce((a, x) => a + x.removed, 0),
   ],
   [d.support.assistance, d.support.removed]);
+
+// --- the confirmation tick ---------------------------------------------
+// These two are the only numbers in the app read out of sentences rather than
+// counted off marks, so whether a person vouched for them is carried alongside
+// them and never inferred from the day merely being saved.
+d = buildDataset(logs, f({}));
+check("confirmation rides with the day",
+  d.dailyTotals.map((x) => `${x.log_date}=${x.support_confirmed}`),
+  ["2026-09-14=false", "2026-09-15=false", "2026-09-16=true"]);
+check("a day with no column at all reads as unconfirmed",
+  d.dailyTotals.find((x) => x.log_date === "2026-09-14").support_confirmed, false);
+check("reporting events without ticking stays unconfirmed",
+  d.dailyTotals.find((x) => x.log_date === "2026-09-15").support_confirmed, false);
+
+// The report counts confirmations only among the days that actually reported
+// something — a quiet day has nothing to vouch for and must not dilute the tally.
+{
+  const reported = d.dailyTotals.filter((x) => x.assistance > 0 || x.removed > 0);
+  check("days that reported an event", reported.length, 2);
+  check("of those, the confirmed ones", reported.filter((x) => x.support_confirmed).length, 1);
+}
+
+// Confirmation is independent of `verified`: one says the day was checked against
+// the page, the other says these two figures specifically were vouched for.
+check("confirmation is not the same field as verified",
+  d.dailyTotals.map((x) => `${x.verified}/${x.support_confirmed}`),
+  ["false/false", "false/false", "false/true"]);
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

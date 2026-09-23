@@ -97,6 +97,7 @@ export function buildDataset(all: LogWithPeriods[], filters: Filters): Dataset {
     // Day-level, so untouched by the behavior and class-period filters alike.
     assistance: log.assistance_count ?? 0,
     removed: log.removed_count ?? 0,
+    support_confirmed: Boolean(log.support_confirmed_at),
   }));
 
   const behaviorDaily: BehaviorDaily[] = [];

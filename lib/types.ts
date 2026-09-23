@@ -31,6 +31,8 @@ export type ParsedLog = {
   /** Read out of the teacher's prose, once for the day. Always confirmed by a human. */
   assistance_count: number;
   removed_count: number;
+  /** Ticked on the review screen. Never set on the reviewer's behalf. */
+  support_confirmed?: boolean;
   /** Why those two want checking — review-time only, never stored. */
   support_flags?: string[];
 };
@@ -47,6 +49,8 @@ export type DailyTotal = {
   /** Times another adult was called in, and times she left the room, that day. */
   assistance: number;
   removed: number;
+  /** Has a human ticked those two as correct? */
+  support_confirmed: boolean;
 };
 
 export type BehaviorDaily = {
@@ -98,6 +102,15 @@ export type LogWithPeriods = {
    */
   assistance_count: number;
   removed_count: number;
+  /**
+   * When a human ticked "these two are right". Null means nobody has.
+   *
+   * Separate from `verified_at`, which says the whole DAY was checked against the
+   * page. These two are the only numbers in the app read out of the teacher's
+   * sentences rather than counted off her tally marks, so it is worth being able
+   * to say which of them a parent specifically stood behind.
+   */
+  support_confirmed_at: string | null;
   overall_note: string | null;
   image_path: string | null;
   harper_log_periods: (PeriodEntry & { id: string; total: number })[];

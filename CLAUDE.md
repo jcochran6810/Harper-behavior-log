@@ -186,6 +186,63 @@ branch merged into `main` and pushed. Do the following in order:
 
 ## Session log
 
+### 2026-09-23 — claude/nice-allen-bet182 (charting the two support counts, and a tick for them)
+
+Two asks, both about the assistance-called and removed-from-class figures added the day
+before: put them on the graphs, then let a person confirm them.
+
+**The chart**
+- `SupportPerDayChart` + `SupportLegend` in `components/charts.tsx`: grouped bars per school
+  day, on the dashboard and in the report, with the numbers table kept underneath as the
+  table view.
+- Its **own plot**, not a second series on the incidents chart. These run in single figures
+  where incidents run to dozens: a shared axis flattens them to nothing, and a twin axis
+  invites comparing two unrelated units. Same width and side margins as `TotalPerDayChart`
+  so the day columns line up down the page.
+- Colour: they take no slot in the eight-colour behavior palette — that palette's slot
+  order is its colorblind-safety mechanism and its slots belong to the behaviors. They use
+  violet and red from the same validated ramp as a pair of their own, **run through the
+  palette validator against this app's real surfaces before use**: CVD separation dE 22.7
+  light and 19.5 dark against a floor of 8, every check passing in both modes. Hexes live
+  in `app/globals.css` as `--support-assistance` / `--support-removed` so each mode gets
+  its own step instead of a light hue on a near-black surface.
+- Identity never rests on hue alone: legend always present, every bar labelled with its own
+  number while columns are wide enough, fixed left/right position per series.
+
+**A defect that only a render caught**
+- Compiled the component, server-rendered it with sample data at 8 / 22 / 40 / 180 days and
+  screenshotted it. Past about twenty days the date labels collided into a smear — and the
+  flaw was already in `TotalPerDayChart` and `StackedByBehaviorChart` too.
+- All three day charts now print every Nth date, anchored to the LAST day so the most recent
+  column is always labelled (`labelStride` / `labelled`). The per-bar numbers drop out once
+  a column is too narrow to hold them, where the legend and fixed position still carry
+  identity. Re-rendered and re-checked at every density.
+
+**The confirmation tick**
+- `supabase/migrations/0008_harper_support_confirmed.sql` (applied live):
+  `support_confirmed_at` on `harper_daily_logs`.
+- Why its own column rather than leaning on `verified_at`: that one says the whole day was
+  checked against the page; this is the narrower claim that someone stood behind these two
+  figures specifically. They are the only numbers in the app read out of the teacher's
+  sentences rather than counted off her marks, and the ones a staffing argument would quote.
+- **Required when either count is above zero** — the save button says so and refuses, and
+  the box outlines in amber. **Optional on a quiet day**, because a day with nothing to
+  report has nothing to vouch for and demanding a tick every time would only teach people
+  to tick without looking.
+- Never set on the reviewer's behalf: saving a log is not by itself a statement about these.
+- Shown on the day page, flagged on the dashboard card, and counted in the report, which now
+  says how many of the days that reported an event had them confirmed rather than implying
+  all of them did.
+- Rendered the box and checked all four states before committing.
+
+**Tests**
+- `tests/support.test.js` grew to cover the confirmation: that it rides with the day, that a
+  missing column reads as unconfirmed, that reporting an event without ticking stays
+  unconfirmed, and that it is not the same field as `verified`.
+
+**Still open**
+- None of this has met a real photograph yet. See `fix_list.md`.
+
 ### 2026-09-22 — claude/nice-allen-bet182 (assistance and removals moved to per day)
 
 Follow-up in the same session: the two counts belong in one box at the top of each day,

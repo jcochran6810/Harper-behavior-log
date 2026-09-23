@@ -14,6 +14,12 @@ import { SUPPORT_EVENTS, type SupportKey } from "@/lib/behaviors";
  * Kept apart from the eight behavior counters because they are a different kind of
  * evidence and they come from a different part of the page: the teacher's own
  * count, not her tally marks. Neither is ever added to an incident total.
+ *
+ * They also carry their own confirmation tick. Every other number here is counted
+ * off marks a person can check against the photograph one glyph at a time; these
+ * two are read out of sentences, which is a judgement the photo doesn't settle at
+ * a glance. So a reviewer says explicitly that they are right, and the app records
+ * that separately from "this day was checked".
  */
 
 type Values = Record<SupportKey, number>;
@@ -76,14 +82,28 @@ function Stepper({
 export default function SupportCounters({
   values,
   onChange,
+  confirmed,
+  onConfirmedChange,
+  /** True once the reviewer has tried to save without ticking a required box. */
+  showRequired = false,
 }: {
   values: Partial<Values>;
   onChange: (key: SupportKey, next: number) => void;
+  confirmed?: boolean;
+  onConfirmedChange?: (next: boolean) => void;
+  showRequired?: boolean;
 }) {
+  const total = SUPPORT_EVENTS.reduce((sum, e) => sum + (values[e.key] ?? 0), 0);
+  // Only a claim needs vouching for. A day where neither happened has nothing to
+  // confirm, and demanding a tick on every quiet day would teach people to tick
+  // without looking — which is worse than not asking.
+  const required = total > 0;
+  const missing = showRequired && required && !confirmed;
+
   return (
     <div
       className="mt-2 rounded-lg border px-3 py-1.5"
-      style={{ borderColor: "var(--border)" }}
+      style={{ borderColor: missing ? "var(--warning)" : "var(--border)", borderWidth: missing ? 2 : 1 }}
     >
       <p className="pt-1 text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
         What the school had to do
@@ -97,6 +117,33 @@ export default function SupportCounters({
           onChange={(next) => onChange(event.key, next)}
         />
       ))}
+
+      {onConfirmedChange && (
+        <div className="mt-1 border-t pt-2" style={{ borderColor: "var(--border)" }}>
+          <label className="flex cursor-pointer items-start gap-2 py-1 text-xs">
+            <input
+              type="checkbox"
+              checked={Boolean(confirmed)}
+              onChange={(e) => onConfirmedChange(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0"
+            />
+            <span style={{ color: "var(--text-secondary)" }}>
+              These two numbers are right for this day.
+              {required && (
+                <span style={{ color: missing ? "var(--warning)" : "var(--text-muted)" }}>
+                  {" "}
+                  Required, because one of them is above zero.
+                </span>
+              )}
+            </span>
+          </label>
+          <p className="pb-1 text-[11px] leading-snug" style={{ color: "var(--text-muted)" }}>
+            {total > 0
+              ? "These are read out of the teacher's wording, not counted off tally marks — so they're the ones worth a second look."
+              : "Nothing to confirm on a day with neither. Tick it anyway if you checked."}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
