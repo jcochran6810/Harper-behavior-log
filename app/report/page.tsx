@@ -2,7 +2,13 @@ import FilterBar from "@/components/FilterBar";
 import Nav from "@/components/Nav";
 import PrintButton from "@/components/PrintButton";
 import ReportOptions from "@/components/ReportOptions";
-import { PeriodHeatmap, TotalPerDayChart, weekdayDate } from "@/components/charts";
+import {
+  PeriodHeatmap,
+  SupportLegend,
+  SupportPerDayChart,
+  TotalPerDayChart,
+  weekdayDate,
+} from "@/components/charts";
 import { PERIOD_KEYS, periodLabel, SUPPORT_EVENTS } from "@/lib/behaviors";
 import { buildDataset } from "@/lib/derive";
 import { describeFilters, parseFilters, serializeFilters, type SearchParams } from "@/lib/filters";
@@ -281,6 +287,13 @@ export default async function ReportPage({
                           );
                         })}
                       </ul>
+
+                      {/* Its own plot: single figures against incident counts in
+                          the dozens, and one chart never carries two y-scales. */}
+                      <SupportPerDayChart data={data.dailyTotals} />
+                      <div className="mb-3 mt-1 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                        <SupportLegend />
+                      </div>
 
                       {supportDays.length > 0 && (
                         <table className="w-full border-collapse text-sm">

@@ -112,9 +112,23 @@ Three rules keep them honest:
    screen shows why next to the box. Where two reads disagree, the lower stands — the same
    rule the tallies follow.
 
-They get no color from the categorical palette — the slot order in that palette is the
-colorblind-safety mechanism, so these two are drawn in neutral ink and told apart by fill
-versus outline instead.
+On the dashboard and in the report they get their own chart: grouped bars per school day,
+one pair per day, with the numbers table underneath. It is a **separate plot** from the
+incidents chart rather than a second line on it — these run in single figures where
+incidents run to dozens, and no chart here carries two y-axes.
+
+They take no slot in the eight-colour behavior palette; that palette's slot order is its
+colorblind-safety mechanism and its slots belong to the behaviors. Instead they use violet
+and red from the same validated ramp as a pair of their own, checked against both chart
+surfaces before use (colour-vision separation ΔE 22.7 light and 19.5 dark, against a floor
+of 8). Each mode gets its own step, defined in `app/globals.css` as `--support-assistance`
+and `--support-removed`. Identity never rests on hue alone: a legend is always present,
+each bar carries its own number while the columns are wide enough, and the two series keep
+a fixed left/right position within every day.
+
+Where a stretch gets long enough that the day columns are narrower than a date label, all
+three day charts print every second, third or twelfth date instead of smearing them
+together — anchored to the most recent day, so the newest column is always labelled.
 
 ## Checked against the paper, or not
 

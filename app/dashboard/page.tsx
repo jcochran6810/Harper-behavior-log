@@ -8,6 +8,8 @@ import {
   PeriodHeatmap,
   StackedByBehaviorChart,
   StatTile,
+  SupportLegend,
+  SupportPerDayChart,
   TotalPerDayChart,
   weekdayDate,
 } from "@/components/charts";
@@ -176,7 +178,22 @@ export default async function DashboardPage({
                     {activeCount(filters) > 0 ? ", so a class-period filter doesn't narrow these" : ""}
                     . Not included in the incident totals above.
                   </p>
+
+                  {/* Its own plot, not a second line on the incidents chart: these
+                      run in single figures where incidents run to dozens, and one
+                      chart never carries two y-scales. */}
+                  <SupportPerDayChart
+                    data={data.dailyTotals}
+                    dayHref={(date) => (query ? `/day/${date}?${query}` : `/day/${date}`)}
+                  />
+                  <div className="mb-3 mt-1 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                    <SupportLegend />
+                  </div>
+
                   <table className="w-full border-collapse text-sm">
+                    <caption className="pb-1 text-left text-xs" style={{ color: "var(--text-muted)" }}>
+                      The same figures as numbers, for the days it happened on.
+                    </caption>
                     <thead>
                       <tr style={{ color: "var(--text-muted)" }}>
                         <th scope="col" className="py-1 text-left text-xs font-medium">

@@ -13,6 +13,15 @@
   --good: #0ca30c;
   --critical: #d03b3b;
   --warning: #fab219;
+
+  /* The two support series (assistance called, removed from class).
+     They are NOT behaviors, so they take no behavior palette slot — these are
+     violet and red from the same validated categorical ramp, checked as a pair
+     against both surfaces (CVD dE 22.7 light / 19.5 dark, floor is 8). Kept as
+     variables so each mode gets its own step rather than reusing the light hex
+     on a near-black surface. */
+  --support-assistance: #4a3aa7;
+  --support-removed: #e34948;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -26,6 +35,8 @@
     --grid: #2c2c2a;
     --axis: #383835;
     --border: rgba(255, 255, 255, 0.1);
+    --support-assistance: #9085e9;
+    --support-removed: #e66767;
   }
 }
 
@@ -39,6 +50,8 @@
   --grid: #2c2c2a;
   --axis: #383835;
   --border: rgba(255, 255, 255, 0.1);
+  --support-assistance: #9085e9;
+  --support-removed: #e66767;
 }
 
 html,
@@ -82,6 +95,9 @@ button {
     --grid: #dddddd;
     --axis: #999999;
     --border: rgba(0, 0, 0, 0.25);
+    /* Print goes back to the light steps, which is what ink reproduces. */
+    --support-assistance: #4a3aa7;
+    --support-removed: #e34948;
   }
   .no-print {
     display: none !important;

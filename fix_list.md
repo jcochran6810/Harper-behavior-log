@@ -55,6 +55,14 @@ Add new items at the top. Use the format:
 
 ## Done
 
+- [x] 2026-09-23 — Assistance called and removals from class now have a chart, not just
+      tiles and a table: grouped bars per day on the dashboard and in the report
+      (`SupportPerDayChart`), with a legend and the numbers table kept underneath as the
+      table view. Its own plot rather than an overlay on the incidents chart, which would
+      have meant two y-scales. Colours validated as a pair against both surfaces before
+      use. While in there, all three day charts learned to thin their date labels instead
+      of smearing them together once the columns get narrow.
+
 - [x] 2026-09-22 — Cleared all five seeded September days from the live database (50 period
       rows cascaded; no photos or training samples existed). The app now starts empty, at
       the user's request. `supabase/seed_september.sql` keeps the transcriptions.

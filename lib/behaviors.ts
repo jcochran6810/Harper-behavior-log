@@ -51,9 +51,14 @@ export type BehaviorKey = (typeof BEHAVIOR_KEYS)[number];
  * these are written in prose, so the reader proposes them from the teacher's own
  * wording and a human confirms every non-zero one.
  *
- * No palette slot is assigned. The categorical palette's slot order is the
- * colorblind-safety mechanism, so these are drawn in neutral ink and told apart
- * by fill versus outline — a distinction that survives any kind of color vision.
+ * They take NO behavior palette slot — the slot order in that palette is its
+ * colorblind-safety mechanism and the eight slots belong to the eight behaviors.
+ * Instead they use violet and red from the same validated categorical ramp, as a
+ * pair of their own, checked against both chart surfaces before being used:
+ * CVD separation dE 22.7 light and 19.5 dark, against a floor of 8. Their hexes
+ * live in app/globals.css as `--support-assistance` and `--support-removed` so
+ * each mode gets its own step instead of a light hue on a near-black surface.
+ * `mark` keeps a second, non-color channel for print and forced-colors.
  */
 export type SupportEvent = {
   key: "assistance_count" | "removed_count";
@@ -61,8 +66,10 @@ export type SupportEvent = {
   short: string;
   /** What counts, in the teacher's terms — shown next to the counter. */
   hint: string;
-  /** How the charts tell the two apart without using color. */
+  /** Second, non-color channel: which of the two a mark is, without hue. */
   mark: "solid" | "outline";
+  /** CSS variable holding this series' colour for the current theme. */
+  cssVar: string;
 };
 
 export const SUPPORT_EVENTS: SupportEvent[] = [
@@ -72,6 +79,7 @@ export const SUPPORT_EVENTS: SupportEvent[] = [
     short: "Assistance",
     hint: "Another adult was called into the room — support teacher, aide, administrator.",
     mark: "solid",
+    cssVar: "--support-assistance",
   },
   {
     key: "removed_count",
@@ -79,12 +87,18 @@ export const SUPPORT_EVENTS: SupportEvent[] = [
     short: "Removed",
     hint: "Harper was taken out of the classroom — office, calm room, sent home. Not scheduled pull-outs like therapy.",
     mark: "outline",
+    cssVar: "--support-removed",
   },
 ];
 
 export type SupportKey = SupportEvent["key"];
 
 export const SUPPORT_KEYS = SUPPORT_EVENTS.map((e) => e.key) as SupportKey[];
+
+/** `var(--support-…)` for use as an SVG fill or a CSS background. */
+export function supportColor(event: SupportEvent): string {
+  return `var(${event.cssVar})`;
+}
 
 export type Period = { key: string; label: string; timeRange: string; order: number };
 
